@@ -47,6 +47,13 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        room: {
+          bg: "hsl(var(--room-bg))",
+        },
+        control: {
+          bg: "hsl(var(--control-bg))",
+          hover: "hsl(var(--control-hover))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
