@@ -40,20 +40,24 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
         peerRef.current = peer;
 
         peer.on("open", (id) => {
-          console.log("My peer ID is: " + id);
+          console.log("✅ Peer connected! My peer ID is:", id);
         });
 
         peer.on("call", (call) => {
+          console.log("📞 Incoming call from:", call.peer);
           // Answer the call with local stream
           call.answer(stream);
           
           call.on("stream", (remoteStream) => {
+            console.log("📺 Received stream from:", call.peer);
             // Add remote participant
             setParticipants((prev) => {
               // Check if participant already exists
               if (prev.some((p) => p.peerId === call.peer)) {
+                console.log("ℹ️ Participant already exists:", call.peer);
                 return prev;
               }
+              console.log("➕ Adding new participant:", call.peer);
               return [
                 ...prev,
                 {
@@ -67,6 +71,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
           });
 
           call.on("close", () => {
+            console.log("❌ Call closed with:", call.peer);
             setParticipants((prev) => prev.filter((p) => p.peerId !== call.peer));
           });
 
@@ -94,15 +99,23 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   }, [roomId, userId]);
 
   const callPeer = (peerId: string) => {
-    if (!localStream || !peerRef.current) return;
+    console.log("📱 Attempting to call peer:", peerId);
+    if (!localStream || !peerRef.current) {
+      console.warn("⚠️ Cannot call peer - localStream or peerRef not ready");
+      return;
+    }
 
+    console.log("📞 Calling peer:", peerId);
     const call = peerRef.current.call(peerId, localStream);
     
     call.on("stream", (remoteStream) => {
+      console.log("📺 Received stream from:", peerId);
       setParticipants((prev) => {
         if (prev.some((p) => p.peerId === peerId)) {
+          console.log("ℹ️ Participant already exists:", peerId);
           return prev;
         }
+        console.log("➕ Adding new participant:", peerId);
         return [
           ...prev,
           {
@@ -116,6 +129,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     });
 
     call.on("close", () => {
+      console.log("❌ Call closed with:", peerId);
       setParticipants((prev) => prev.filter((p) => p.peerId !== peerId));
     });
 

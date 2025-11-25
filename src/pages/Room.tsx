@@ -35,6 +35,8 @@ const Room = () => {
     if (!user || !roomId) return;
 
     const initRoom = async () => {
+      console.log("🔵 Initializing room:", roomId, "User:", user.id);
+      
       // Get user profile
       const { data: profile } = await supabase
         .from("profiles")
@@ -55,12 +57,14 @@ const Room = () => {
         .single();
 
       if (existing) {
+        console.log("🔄 Rejoining room - updating existing participant");
         // Update to active if rejoining
         await supabase
           .from("room_participants")
           .update({ is_active: true, left_at: null })
           .eq("id", existing.id);
       } else {
+        console.log("🆕 Joining room as new participant");
         // Join room as new participant
         const { error } = await supabase.from("room_participants").insert({
           room_id: roomId,
@@ -68,11 +72,12 @@ const Room = () => {
         });
 
         if (error) {
-          console.error("Error joining room:", error);
+          console.error("❌ Error joining room:", error);
         }
       }
 
       // Get all existing active participants and call them
+      console.log("👤 My peer ID:", myPeerId);
       if (myPeerId) {
         const { data: existingParticipants } = await supabase
           .from("room_participants")
@@ -81,12 +86,19 @@ const Room = () => {
           .eq("is_active", true)
           .neq("user_id", user.id);
 
-        if (existingParticipants) {
+        console.log("👥 Existing participants:", existingParticipants);
+        
+        if (existingParticipants && existingParticipants.length > 0) {
           existingParticipants.forEach((participant) => {
             const peerId = `${roomId}-${participant.user_id}`;
+            console.log("📞 Calling peer:", peerId);
             setTimeout(() => callPeer(peerId), 1000);
           });
+        } else {
+          console.log("ℹ️ No existing participants to call");
         }
+      } else {
+        console.warn("⚠️ My peer ID not ready yet");
       }
 
       // Subscribe to new participants
@@ -101,6 +113,7 @@ const Room = () => {
             filter: `room_id=eq.${roomId}`,
           },
           async (payload) => {
+            console.log("🔔 INSERT event received:", payload);
             if (payload.new.user_id !== user.id) {
               // Get participant name and show notification
               const { data: participantProfile } = await supabase
@@ -118,7 +131,10 @@ const Room = () => {
 
               if (myPeerId) {
                 const newPeerId = `${roomId}-${payload.new.user_id}`;
+                console.log("📞 Calling new peer:", newPeerId);
                 setTimeout(() => callPeer(newPeerId), 1000);
+              } else {
+                console.warn("⚠️ Cannot call new peer - myPeerId not ready");
               }
             }
           }
@@ -132,6 +148,7 @@ const Room = () => {
             filter: `room_id=eq.${roomId}`,
           },
           async (payload) => {
+            console.log("🔔 UPDATE event received:", payload);
             // Show notification when someone rejoins (is_active changes to true)
             if (payload.new.user_id !== user.id && payload.new.is_active && !payload.old.is_active) {
               const { data: participantProfile } = await supabase
@@ -149,7 +166,10 @@ const Room = () => {
 
               if (myPeerId) {
                 const newPeerId = `${roomId}-${payload.new.user_id}`;
+                console.log("📞 Calling rejoining peer:", newPeerId);
                 setTimeout(() => callPeer(newPeerId), 1000);
+              } else {
+                console.warn("⚠️ Cannot call rejoining peer - myPeerId not ready");
               }
             }
           }
