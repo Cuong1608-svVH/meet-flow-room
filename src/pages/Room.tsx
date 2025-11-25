@@ -6,6 +6,7 @@ import { useWebRTC } from "@/hooks/useWebRTC";
 import { VideoGrid } from "@/components/room/VideoGrid";
 import { ChatPanel } from "@/components/room/ChatPanel";
 import { ControlBar } from "@/components/room/ControlBar";
+import { ParticipantsList } from "@/components/room/ParticipantsList";
 import { useToast } from "@/hooks/use-toast";
 
 const Room = () => {
@@ -201,11 +202,20 @@ const Room = () => {
             roomId={roomId!}
           />
         </div>
-        {showChat && (
-          <div className="w-80">
-            <ChatPanel roomId={roomId!} />
+        <div className="w-80 flex flex-col gap-2 p-2">
+          <div className="flex-1 overflow-hidden">
+            <ParticipantsList
+              roomId={roomId!}
+              participants={participants}
+              localDisplayName={displayName}
+            />
           </div>
-        )}
+          {showChat && (
+            <div className="flex-1 overflow-hidden">
+              <ChatPanel roomId={roomId!} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
