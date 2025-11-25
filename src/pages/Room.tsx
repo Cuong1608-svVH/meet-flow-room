@@ -45,14 +45,47 @@ const Room = () => {
         setDisplayName(profile.display_name || "User");
       }
 
-      // Join room
-      const { error } = await supabase.from("room_participants").insert({
-        room_id: roomId,
-        user_id: user.id,
-      });
+      // Check if already a participant (to handle refresh/rejoin)
+      const { data: existing } = await supabase
+        .from("room_participants")
+        .select("*")
+        .eq("room_id", roomId)
+        .eq("user_id", user.id)
+        .single();
 
-      if (error) {
-        console.error("Error joining room:", error);
+      if (existing) {
+        // Update to active if rejoining
+        await supabase
+          .from("room_participants")
+          .update({ is_active: true, left_at: null })
+          .eq("id", existing.id);
+      } else {
+        // Join room as new participant
+        const { error } = await supabase.from("room_participants").insert({
+          room_id: roomId,
+          user_id: user.id,
+        });
+
+        if (error) {
+          console.error("Error joining room:", error);
+        }
+      }
+
+      // Get all existing active participants and call them
+      if (myPeerId) {
+        const { data: existingParticipants } = await supabase
+          .from("room_participants")
+          .select("user_id")
+          .eq("room_id", roomId)
+          .eq("is_active", true)
+          .neq("user_id", user.id);
+
+        if (existingParticipants) {
+          existingParticipants.forEach((participant) => {
+            const peerId = `${roomId}-${participant.user_id}`;
+            setTimeout(() => callPeer(peerId), 1000);
+          });
+        }
       }
 
       // Subscribe to new participants
@@ -66,10 +99,57 @@ const Room = () => {
             table: "room_participants",
             filter: `room_id=eq.${roomId}`,
           },
-          (payload) => {
-            if (payload.new.user_id !== user.id && myPeerId) {
-              const newPeerId = `${roomId}-${payload.new.user_id}`;
-              setTimeout(() => callPeer(newPeerId), 1000);
+          async (payload) => {
+            if (payload.new.user_id !== user.id) {
+              // Get participant name and show notification
+              const { data: participantProfile } = await supabase
+                .from("profiles")
+                .select("display_name")
+                .eq("id", payload.new.user_id)
+                .single();
+
+              const participantName = participantProfile?.display_name || "Người dùng mới";
+              
+              toast({
+                title: "Có người tham gia",
+                description: `${participantName} đã tham gia phòng`,
+              });
+
+              if (myPeerId) {
+                const newPeerId = `${roomId}-${payload.new.user_id}`;
+                setTimeout(() => callPeer(newPeerId), 1000);
+              }
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "room_participants",
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload) => {
+            // Show notification when someone rejoins (is_active changes to true)
+            if (payload.new.user_id !== user.id && payload.new.is_active && !payload.old.is_active) {
+              const { data: participantProfile } = await supabase
+                .from("profiles")
+                .select("display_name")
+                .eq("id", payload.new.user_id)
+                .single();
+
+              const participantName = participantProfile?.display_name || "Người dùng mới";
+              
+              toast({
+                title: "Có người tham gia",
+                description: `${participantName} đã tham gia phòng`,
+              });
+
+              if (myPeerId) {
+                const newPeerId = `${roomId}-${payload.new.user_id}`;
+                setTimeout(() => callPeer(newPeerId), 1000);
+              }
             }
           }
         )
@@ -81,7 +161,7 @@ const Room = () => {
     };
 
     initRoom();
-  }, [roomId, user, myPeerId]);
+  }, [roomId, user, myPeerId, callPeer, toast]);
 
   const handleLeave = async () => {
     if (user && roomId) {
