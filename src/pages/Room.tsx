@@ -48,32 +48,24 @@ const Room = () => {
         setDisplayName(profile.display_name || "User");
       }
 
-      // Check if already a participant (to handle refresh/rejoin)
-      const { data: existing } = await supabase
+      // Use upsert to handle both new join and rejoin cases
+      console.log("🔄 Joining/rejoining room");
+      const { error } = await supabase
         .from("room_participants")
-        .select("*")
-        .eq("room_id", roomId)
-        .eq("user_id", user.id)
-        .single();
+        .upsert(
+          {
+            room_id: roomId,
+            user_id: user.id,
+            is_active: true,
+            left_at: null,
+          },
+          {
+            onConflict: 'room_id,user_id',
+          }
+        );
 
-      if (existing) {
-        console.log("🔄 Rejoining room - updating existing participant");
-        // Update to active if rejoining
-        await supabase
-          .from("room_participants")
-          .update({ is_active: true, left_at: null })
-          .eq("id", existing.id);
-      } else {
-        console.log("🆕 Joining room as new participant");
-        // Join room as new participant
-        const { error } = await supabase.from("room_participants").insert({
-          room_id: roomId,
-          user_id: user.id,
-        });
-
-        if (error) {
-          console.error("❌ Error joining room:", error);
-        }
+      if (error) {
+        console.error("❌ Error joining room:", error);
       }
 
       // Get all existing active participants and call them
