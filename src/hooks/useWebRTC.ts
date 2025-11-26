@@ -32,15 +32,20 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
         setLocalStream(stream);
 
         // Initialize PeerJS
-        const peer = new Peer(`${roomId}-${userId}`, {
-          config: {
-            iceServers: [
-              { urls: "stun:stun.l.google.com:19302" },
-            ],
-          },
-        });
+      const peer = new Peer(`${roomId}-${userId}`, {
+  config: {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      {
+        urls: "turn:global.relay.metered.ca:80",
+        username: "openai",
+        credential: "openai"
+      }
+    ],
+  },
+});
 
-        peerRef.current = peer;
+        Ref.current = ;
 
         peer.on("open", (id) => {
           console.log("✅ Peer connected! My peer ID is:", id);
