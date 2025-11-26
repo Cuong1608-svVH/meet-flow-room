@@ -1,5 +1,6 @@
 import Peer, { MediaConnection } from "peerjs";
 import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Participant {
   peerId: string;
@@ -48,8 +49,19 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
           // Answer the call with local stream
           call.answer(stream);
           
-          call.on("stream", (remoteStream) => {
+          call.on("stream", async (remoteStream) => {
             console.log("📺 Received stream from:", call.peer);
+            
+            // Get participant display name from database
+            const participantUserId = call.peer.split("-")[1] || "";
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("display_name")
+              .eq("id", participantUserId)
+              .single();
+            
+            const displayName = profile?.display_name || "User";
+            
             // Add remote participant
             setParticipants((prev) => {
               // Check if participant already exists
@@ -57,14 +69,14 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
                 console.log("ℹ️ Participant already exists:", call.peer);
                 return prev;
               }
-              console.log("➕ Adding new participant:", call.peer);
+              console.log("➕ Adding new participant:", call.peer, "with name:", displayName);
               return [
                 ...prev,
                 {
                   peerId: call.peer,
                   stream: remoteStream,
-                  userId: call.peer.split("-")[1] || "",
-                  displayName: "User",
+                  userId: participantUserId,
+                  displayName,
                 },
               ];
             });
@@ -98,7 +110,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     };
   }, [roomId, userId]);
 
-  const callPeer = (peerId: string) => {
+  const callPeer = async (peerId: string) => {
     console.log("📱 Attempting to call peer:", peerId);
     if (!localStream || !peerRef.current) {
       console.warn("⚠️ Cannot call peer - localStream or peerRef not ready");
@@ -108,21 +120,32 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     console.log("📞 Calling peer:", peerId);
     const call = peerRef.current.call(peerId, localStream);
     
-    call.on("stream", (remoteStream) => {
+    call.on("stream", async (remoteStream) => {
       console.log("📺 Received stream from:", peerId);
+      
+      // Get participant display name from database
+      const participantUserId = peerId.split("-")[1] || "";
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", participantUserId)
+        .single();
+      
+      const displayName = profile?.display_name || "User";
+      
       setParticipants((prev) => {
         if (prev.some((p) => p.peerId === peerId)) {
           console.log("ℹ️ Participant already exists:", peerId);
           return prev;
         }
-        console.log("➕ Adding new participant:", peerId);
+        console.log("➕ Adding new participant:", peerId, "with name:", displayName);
         return [
           ...prev,
           {
             peerId,
             stream: remoteStream,
-            userId: peerId.split("-")[1] || "",
-            displayName: "User",
+            userId: participantUserId,
+            displayName,
           },
         ];
       });
