@@ -173,8 +173,11 @@ const Room = () => {
       };
     };
 
-    initRoom();
-  }, [roomId, user, myPeerId, callPeer, toast]);
+    const cleanup = initRoom();
+    return () => {
+      cleanup.then(cleanupFn => cleanupFn?.());
+    };
+  }, [roomId, user]);
 
   const handleLeave = async () => {
     if (user && roomId) {
