@@ -23,6 +23,7 @@ const Room = () => {
     isVideoEnabled,
     isAudioEnabled,
     isScreenSharing,
+    isPeerReady,
     toggleVideo,
     toggleAudio,
     startScreenShare,
@@ -69,28 +70,24 @@ const Room = () => {
       }
 
       // Get all existing active participants and call them
-      console.log("👤 My peer ID:", myPeerId);
-      if (myPeerId) {
-        const { data: existingParticipants } = await supabase
-          .from("room_participants")
-          .select("user_id")
-          .eq("room_id", roomId)
-          .eq("is_active", true)
-          .neq("user_id", user.id);
+      console.log("👤 My peer ID:", myPeerId, "Peer ready:", isPeerReady);
+      const { data: existingParticipants } = await supabase
+        .from("room_participants")
+        .select("user_id")
+        .eq("room_id", roomId)
+        .eq("is_active", true)
+        .neq("user_id", user.id);
 
-        console.log("👥 Existing participants:", existingParticipants);
-        
-        if (existingParticipants && existingParticipants.length > 0) {
-          existingParticipants.forEach((participant) => {
-            const peerId = `${roomId}-${participant.user_id}`;
-            console.log("📞 Calling peer:", peerId);
-            setTimeout(() => callPeer(peerId), 1000);
-          });
-        } else {
-          console.log("ℹ️ No existing participants to call");
-        }
+      console.log("👥 Existing participants:", existingParticipants);
+      
+      if (existingParticipants && existingParticipants.length > 0) {
+        existingParticipants.forEach((participant) => {
+          const peerId = `${roomId}-${participant.user_id}`;
+          console.log("📞 Calling peer:", peerId);
+          setTimeout(() => callPeer(peerId), 1000);
+        });
       } else {
-        console.warn("⚠️ My peer ID not ready yet");
+        console.log("ℹ️ No existing participants to call");
       }
 
       // Subscribe to new participants
@@ -121,13 +118,9 @@ const Room = () => {
                 description: `${participantName} đã tham gia phòng`,
               });
 
-              if (myPeerId) {
-                const newPeerId = `${roomId}-${payload.new.user_id}`;
-                console.log("📞 Calling new peer:", newPeerId);
-                setTimeout(() => callPeer(newPeerId), 1000);
-              } else {
-                console.warn("⚠️ Cannot call new peer - myPeerId not ready");
-              }
+              const newPeerId = `${roomId}-${payload.new.user_id}`;
+              console.log("📞 Calling new peer:", newPeerId);
+              setTimeout(() => callPeer(newPeerId), 1000);
             }
           }
         )
@@ -156,13 +149,9 @@ const Room = () => {
                 description: `${participantName} đã tham gia phòng`,
               });
 
-              if (myPeerId) {
-                const newPeerId = `${roomId}-${payload.new.user_id}`;
-                console.log("📞 Calling rejoining peer:", newPeerId);
-                setTimeout(() => callPeer(newPeerId), 1000);
-              } else {
-                console.warn("⚠️ Cannot call rejoining peer - myPeerId not ready");
-              }
+              const newPeerId = `${roomId}-${payload.new.user_id}`;
+              console.log("📞 Calling rejoining peer:", newPeerId);
+              setTimeout(() => callPeer(newPeerId), 1000);
             }
           }
         )

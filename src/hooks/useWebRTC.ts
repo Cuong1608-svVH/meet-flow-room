@@ -15,9 +15,11 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isPeerReady, setIsPeerReady] = useState(false);
   const peerRef = useRef<Peer | null>(null);
   const connectionsRef = useRef<Map<string, MediaConnection>>(new Map());
   const screenStreamRef = useRef<MediaStream | null>(null);
+  const pendingCallsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const initWebRTC = async () => {
@@ -42,6 +44,14 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
 
         peer.on("open", (id) => {
           console.log("✅ Peer connected! My peer ID is:", id);
+          setIsPeerReady(true);
+          
+          // Process any pending calls
+          pendingCallsRef.current.forEach((peerId) => {
+            console.log("📞 Calling pending peer:", peerId);
+            callPeerInternal(peerId);
+          });
+          pendingCallsRef.current.clear();
         });
 
         peer.on("call", (call) => {
@@ -110,8 +120,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     };
   }, [roomId, userId]);
 
-  const callPeer = async (peerId: string) => {
-    console.log("📱 Attempting to call peer:", peerId);
+  const callPeerInternal = async (peerId: string) => {
     if (!localStream || !peerRef.current) {
       console.warn("⚠️ Cannot call peer - localStream or peerRef not ready");
       return;
@@ -157,6 +166,18 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     });
 
     connectionsRef.current.set(peerId, call);
+  };
+
+  const callPeer = (peerId: string) => {
+    console.log("📱 Attempting to call peer:", peerId);
+    
+    if (!isPeerReady) {
+      console.log("⏳ Peer not ready yet, adding to pending calls:", peerId);
+      pendingCallsRef.current.add(peerId);
+      return;
+    }
+
+    callPeerInternal(peerId);
   };
 
   const toggleVideo = () => {
@@ -236,6 +257,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     isVideoEnabled,
     isAudioEnabled,
     isScreenSharing,
+    isPeerReady,
     toggleVideo,
     toggleAudio,
     startScreenShare,
