@@ -77,12 +77,19 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
             console.log("📺 Received stream from:", call.peer);
             
             // Get participant display name from database
-            const participantUserId = call.peer.split("-")[1] || "";
-            const { data: profile } = await supabase
+            // Extract userId by removing roomId prefix (format: roomId-userId)
+            const participantUserId = call.peer.substring(roomId.length + 1);
+            console.log("🔍 Extracted userId:", participantUserId);
+            
+            const { data: profile, error } = await supabase
               .from("profiles")
               .select("display_name")
               .eq("id", participantUserId)
-              .single();
+              .maybeSingle();
+            
+            if (error) {
+              console.error("❌ Error fetching profile:", error);
+            }
             
             const displayName = profile?.display_name || "User";
             
@@ -147,12 +154,19 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
       console.log("📺 Received stream from:", peerId);
       
       // Get participant display name from database
-      const participantUserId = peerId.split("-")[1] || "";
-      const { data: profile } = await supabase
+      // Extract userId by removing roomId prefix (format: roomId-userId)
+      const participantUserId = peerId.substring(roomId.length + 1);
+      console.log("🔍 Extracted userId:", participantUserId);
+      
+      const { data: profile, error } = await supabase
         .from("profiles")
         .select("display_name")
         .eq("id", participantUserId)
-        .single();
+        .maybeSingle();
+      
+      if (error) {
+        console.error("❌ Error fetching profile:", error);
+      }
       
       const displayName = profile?.display_name || "User";
       
