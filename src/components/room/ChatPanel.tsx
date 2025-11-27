@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -92,7 +91,7 @@ export const ChatPanel = ({ roomId }: ChatPanelProps) => {
   }, [roomId]);
 
   useEffect(() => {
-    // Auto-scroll to bottom
+    // Auto-scroll to bottom when new messages arrive
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
@@ -117,7 +116,10 @@ export const ChatPanel = ({ roomId }: ChatPanelProps) => {
         <h3 className="font-semibold">Tin nhắn</h3>
       </div>
 
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+      <div 
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto p-4 min-h-0"
+      >
         <div className="space-y-3">
           {messages.map((message) => (
             <div key={message.id} className="space-y-1">
@@ -136,7 +138,7 @@ export const ChatPanel = ({ roomId }: ChatPanelProps) => {
             </div>
           ))}
         </div>
-      </ScrollArea>
+      </div>
 
       <form onSubmit={sendMessage} className="p-4 border-t border-border">
         <div className="flex gap-2">
