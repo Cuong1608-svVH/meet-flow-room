@@ -81,10 +81,11 @@ const Room = () => {
       console.log("👥 Existing participants:", existingParticipants);
       
       if (existingParticipants && existingParticipants.length > 0) {
-        existingParticipants.forEach((participant) => {
+        // Call existing participants with staggered timing to avoid overwhelming
+        existingParticipants.forEach((participant, index) => {
           const peerId = `${roomId}-${participant.user_id}`;
           console.log("📞 Calling peer:", peerId);
-          setTimeout(() => callPeer(peerId), 1000);
+          setTimeout(() => callPeer(peerId), 500 + (index * 200));
         });
       } else {
         console.log("ℹ️ No existing participants to call");
@@ -120,7 +121,8 @@ const Room = () => {
 
               const newPeerId = `${roomId}-${payload.new.user_id}`;
               console.log("📞 Calling new peer:", newPeerId);
-              setTimeout(() => callPeer(newPeerId), 1000);
+              // Call immediately with minimal delay
+              setTimeout(() => callPeer(newPeerId), 300);
             }
           }
         )
@@ -151,7 +153,8 @@ const Room = () => {
 
               const newPeerId = `${roomId}-${payload.new.user_id}`;
               console.log("📞 Calling rejoining peer:", newPeerId);
-              setTimeout(() => callPeer(newPeerId), 1000);
+              // Call immediately with minimal delay
+              setTimeout(() => callPeer(newPeerId), 300);
             }
           }
         )

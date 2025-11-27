@@ -20,6 +20,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   const connectionsRef = useRef<Map<string, MediaConnection>>(new Map());
   const screenStreamRef = useRef<MediaStream | null>(null);
   const pendingCallsRef = useRef<Set<string>>(new Set());
+  const retryTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     const initWebRTC = async () => {
@@ -60,16 +61,27 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
           console.log("✅ Peer connected! My peer ID is:", id);
           setIsPeerReady(true);
           
-          // Process any pending calls
-          pendingCallsRef.current.forEach((peerId) => {
+          // Process any pending calls immediately
+          const pending = Array.from(pendingCallsRef.current);
+          pendingCallsRef.current.clear();
+          
+          pending.forEach((peerId) => {
             console.log("📞 Calling pending peer:", peerId);
+            // Call immediately without delay
             callPeerInternal(peerId);
           });
-          pendingCallsRef.current.clear();
         });
 
         peer.on("call", (call) => {
           console.log("📞 Incoming call from:", call.peer);
+          
+          // Clear any retry timeout for this peer
+          const existingTimeout = retryTimeoutsRef.current.get(call.peer);
+          if (existingTimeout) {
+            clearTimeout(existingTimeout);
+            retryTimeoutsRef.current.delete(call.peer);
+          }
+          
           // Answer the call with local stream
           call.answer(stream);
           
@@ -116,6 +128,18 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
           call.on("close", () => {
             console.log("❌ Call closed with:", call.peer);
             setParticipants((prev) => prev.filter((p) => p.peerId !== call.peer));
+            connectionsRef.current.delete(call.peer);
+          });
+          
+          call.on("error", (error) => {
+            console.error("❌ Call error with:", call.peer, error);
+            // Retry connection after error
+            setTimeout(() => {
+              if (!connectionsRef.current.has(call.peer)) {
+                console.log("🔄 Retrying connection to:", call.peer);
+                callPeerInternal(call.peer);
+              }
+            }, 2000);
           });
 
           connectionsRef.current.set(call.peer, call);
@@ -137,6 +161,8 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
       localStream?.getTracks().forEach((track) => track.stop());
       screenStreamRef.current?.getTracks().forEach((track) => track.stop());
       connectionsRef.current.forEach((conn) => conn.close());
+      retryTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
+      retryTimeoutsRef.current.clear();
       peerRef.current?.destroy();
     };
   }, [roomId, userId]);
@@ -147,53 +173,110 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
       return;
     }
 
+    // Don't call if already connected
+    if (connectionsRef.current.has(peerId)) {
+      console.log("ℹ️ Already connected to:", peerId);
+      return;
+    }
+
     console.log("📞 Calling peer:", peerId);
-    const call = peerRef.current.call(peerId, localStream);
     
-    call.on("stream", async (remoteStream) => {
-      console.log("📺 Received stream from:", peerId);
+    try {
+      const call = peerRef.current.call(peerId, localStream);
       
-      // Get participant display name from database
-      // Extract userId by removing roomId prefix (format: roomId-userId)
-      const participantUserId = peerId.substring(roomId.length + 1);
-      console.log("🔍 Extracted userId:", participantUserId);
-      
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("id", participantUserId)
-        .maybeSingle();
-      
-      if (error) {
-        console.error("❌ Error fetching profile:", error);
-      }
-      
-      const displayName = profile?.display_name || "User";
-      
-      setParticipants((prev) => {
-        if (prev.some((p) => p.peerId === peerId)) {
-          console.log("ℹ️ Participant already exists:", peerId);
-          return prev;
+      // Set timeout to retry if no stream received within 5 seconds
+      const timeoutId = setTimeout(() => {
+        if (!connectionsRef.current.has(peerId)) {
+          console.log("⏰ Connection timeout, retrying:", peerId);
+          connectionsRef.current.delete(peerId);
+          callPeerInternal(peerId);
         }
-        console.log("➕ Adding new participant:", peerId, "with name:", displayName);
-        return [
-          ...prev,
-          {
-            peerId,
-            stream: remoteStream,
-            userId: participantUserId,
-            displayName,
-          },
-        ];
+      }, 5000);
+      
+      retryTimeoutsRef.current.set(peerId, timeoutId);
+      
+      call.on("stream", async (remoteStream) => {
+        console.log("📺 Received stream from:", peerId);
+        
+        // Clear retry timeout
+        const timeout = retryTimeoutsRef.current.get(peerId);
+        if (timeout) {
+          clearTimeout(timeout);
+          retryTimeoutsRef.current.delete(peerId);
+        }
+        
+        // Get participant display name from database
+        // Extract userId by removing roomId prefix (format: roomId-userId)
+        const participantUserId = peerId.substring(roomId.length + 1);
+        console.log("🔍 Extracted userId:", participantUserId);
+        
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", participantUserId)
+          .maybeSingle();
+        
+        if (error) {
+          console.error("❌ Error fetching profile:", error);
+        }
+        
+        const displayName = profile?.display_name || "User";
+        
+        setParticipants((prev) => {
+          if (prev.some((p) => p.peerId === peerId)) {
+            console.log("ℹ️ Participant already exists:", peerId);
+            return prev;
+          }
+          console.log("➕ Adding new participant:", peerId, "with name:", displayName);
+          return [
+            ...prev,
+            {
+              peerId,
+              stream: remoteStream,
+              userId: participantUserId,
+              displayName,
+            },
+          ];
+        });
       });
-    });
 
-    call.on("close", () => {
-      console.log("❌ Call closed with:", peerId);
-      setParticipants((prev) => prev.filter((p) => p.peerId !== peerId));
-    });
+      call.on("close", () => {
+        console.log("❌ Call closed with:", peerId);
+        setParticipants((prev) => prev.filter((p) => p.peerId !== peerId));
+        connectionsRef.current.delete(peerId);
+        
+        // Clear retry timeout
+        const timeout = retryTimeoutsRef.current.get(peerId);
+        if (timeout) {
+          clearTimeout(timeout);
+          retryTimeoutsRef.current.delete(peerId);
+        }
+      });
+      
+      call.on("error", (error) => {
+        console.error("❌ Call error with:", peerId, error);
+        connectionsRef.current.delete(peerId);
+        
+        // Retry connection after error
+        setTimeout(() => {
+          if (!connectionsRef.current.has(peerId)) {
+            console.log("🔄 Retrying connection after error:", peerId);
+            callPeerInternal(peerId);
+          }
+        }, 2000);
+      });
 
-    connectionsRef.current.set(peerId, call);
+      connectionsRef.current.set(peerId, call);
+    } catch (error) {
+      console.error("❌ Error calling peer:", peerId, error);
+      // Retry after a delay
+      setTimeout(() => {
+        if (!connectionsRef.current.has(peerId)) {
+          console.log("🔄 Retrying after exception:", peerId);
+          callPeerInternal(peerId);
+        }
+      }, 2000);
+    }
   };
 
   const callPeer = (peerId: string) => {
