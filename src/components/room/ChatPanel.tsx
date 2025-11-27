@@ -118,7 +118,7 @@ export const ChatPanel = ({ roomId }: ChatPanelProps) => {
 
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 min-h-0"
+        className="flex-1 overflow-y-auto p-4 h-0 min-h-0 max-h-[350px]"
       >
         <div className="space-y-3">
           {messages.map((message) => (
