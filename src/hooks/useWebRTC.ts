@@ -31,21 +31,30 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
         });
         setLocalStream(stream);
 
-        // Initialize PeerJS
-      const peer = new Peer(`${roomId}-${userId}`, {
-  config: {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      {
-        urls: "turn:global.relay.metered.ca:80",
-        username: "openai",
-        credential: "openai"
-      }
-    ],
-  },
-});
+        // Initialize PeerJS with optimized ICE configuration
+        const peer = new Peer(`${roomId}-${userId}`, {
+          config: {
+            iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:stun1.l.google.com:19302" },
+              { urls: "stun:stun2.l.google.com:19302" },
+              {
+                urls: "turn:openrelay.metered.ca:80",
+                username: "openrelayproject",
+                credential: "openrelayproject"
+              },
+              {
+                urls: "turn:openrelay.metered.ca:443",
+                username: "openrelayproject",
+                credential: "openrelayproject"
+              }
+            ],
+            iceTransportPolicy: "all",
+            iceCandidatePoolSize: 10,
+          },
+        });
 
-        Ref.current = ;
+        peerRef.current = peer;
 
         peer.on("open", (id) => {
           console.log("✅ Peer connected! My peer ID is:", id);
