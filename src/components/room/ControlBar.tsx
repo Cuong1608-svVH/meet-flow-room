@@ -41,32 +41,32 @@ export const ControlBar = ({
   };
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-3 bg-control-bg rounded-full shadow-lg">
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-3 bg-control-bg rounded-full shadow-lg border border-border/50">
       <Button
         variant="ghost"
         size="icon"
         onClick={onToggleVideo}
-        className={!isVideoEnabled ? "bg-destructive hover:bg-destructive/90" : "hover:bg-control-hover"}
+        className={`h-12 w-12 rounded-full ${!isVideoEnabled ? "bg-destructive hover:bg-destructive/90 text-white" : "bg-muted hover:bg-muted/80 text-foreground"}`}
       >
-        {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+        {isVideoEnabled ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
       </Button>
 
       <Button
         variant="ghost"
         size="icon"
         onClick={onToggleAudio}
-        className={!isAudioEnabled ? "bg-destructive hover:bg-destructive/90" : "hover:bg-control-hover"}
+        className={`h-12 w-12 rounded-full ${!isAudioEnabled ? "bg-destructive hover:bg-destructive/90 text-white" : "bg-muted hover:bg-muted/80 text-foreground"}`}
       >
-        {isAudioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+        {isAudioEnabled ? <Mic className="h-6 w-6" /> : <MicOff className="h-6 w-6" />}
       </Button>
 
       <Button
         variant="ghost"
         size="icon"
         onClick={isScreenSharing ? onStopScreenShare : onStartScreenShare}
-        className={isScreenSharing ? "bg-primary hover:bg-primary/90" : "hover:bg-control-hover"}
+        className={`h-12 w-12 rounded-full ${isScreenSharing ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-muted hover:bg-muted/80 text-foreground"}`}
       >
-        <Monitor className="h-5 w-5" />
+        <Monitor className="h-6 w-6" />
       </Button>
 
       <div className="w-px h-8 bg-border" />
@@ -75,18 +75,18 @@ export const ControlBar = ({
         variant="ghost"
         size="icon"
         onClick={copyRoomLink}
-        className="hover:bg-control-hover"
+        className="h-12 w-12 rounded-full bg-muted hover:bg-muted/80 text-foreground"
       >
-        {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+        {copied ? <Check className="h-6 w-6" /> : <Copy className="h-6 w-6" />}
       </Button>
 
       <Button
         variant="destructive"
         size="icon"
         onClick={onLeave}
-        className="bg-destructive hover:bg-destructive/90"
+        className="h-12 w-12 rounded-full bg-destructive hover:bg-destructive/90 text-white"
       >
-        <PhoneOff className="h-5 w-5" />
+        <PhoneOff className="h-6 w-6" />
       </Button>
     </div>
   );
