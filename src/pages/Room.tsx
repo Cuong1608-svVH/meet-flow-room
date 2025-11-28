@@ -80,12 +80,14 @@ const Room = () => {
 
       console.log("👥 Existing participants:", existingParticipants);
       
-      if (existingParticipants && existingParticipants.length > 0) {
-        // Call existing participants with staggered timing to avoid overwhelming
-        existingParticipants.forEach((participant, index) => {
-          const peerId = `${roomId}-${participant.user_id}`;
-          console.log("📞 Calling peer:", peerId);
-          setTimeout(() => callPeer(peerId), 500 + (index * 200));
+      // Store participants to call when peer is ready
+      const participantsToCall = existingParticipants?.map(p => `${roomId}-${p.user_id}`) || [];
+      
+      if (participantsToCall.length > 0) {
+        console.log("📞 Will call existing participants:", participantsToCall);
+        // Call immediately without stagger for faster connection
+        participantsToCall.forEach(peerId => {
+          callPeer(peerId);
         });
       } else {
         console.log("ℹ️ No existing participants to call");
@@ -120,9 +122,9 @@ const Room = () => {
               });
 
               const newPeerId = `${roomId}-${payload.new.user_id}`;
-              console.log("📞 Calling new peer:", newPeerId);
-              // Call immediately with minimal delay
-              setTimeout(() => callPeer(newPeerId), 300);
+              console.log("📞 Calling new peer immediately:", newPeerId);
+              // Call immediately without delay
+              callPeer(newPeerId);
             }
           }
         )
@@ -152,9 +154,9 @@ const Room = () => {
               });
 
               const newPeerId = `${roomId}-${payload.new.user_id}`;
-              console.log("📞 Calling rejoining peer:", newPeerId);
-              // Call immediately with minimal delay
-              setTimeout(() => callPeer(newPeerId), 300);
+              console.log("📞 Calling rejoining peer immediately:", newPeerId);
+              // Call immediately without delay
+              callPeer(newPeerId);
             }
           }
         )
