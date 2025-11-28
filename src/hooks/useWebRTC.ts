@@ -65,11 +65,13 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
           const pending = Array.from(pendingCallsRef.current);
           pendingCallsRef.current.clear();
           
-          pending.forEach((peerId) => {
-            console.log("📞 Calling pending peer:", peerId);
-            // Call immediately without delay
-            callPeerInternal(peerId);
-          });
+          if (pending.length > 0) {
+            console.log("📞 Processing", pending.length, "pending calls");
+            pending.forEach((peerId) => {
+              console.log("📞 Calling pending peer:", peerId);
+              callPeerInternal(peerId);
+            });
+          }
         });
 
         peer.on("call", (call) => {
@@ -172,6 +174,20 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
       peerRef.current?.destroy();
     };
   }, [roomId, userId]);
+
+  // Watch for isPeerReady changes and process pending calls
+  useEffect(() => {
+    if (isPeerReady && pendingCallsRef.current.size > 0) {
+      console.log("🔄 Peer is ready, processing", pendingCallsRef.current.size, "pending calls");
+      const pending = Array.from(pendingCallsRef.current);
+      pendingCallsRef.current.clear();
+      
+      pending.forEach((peerId) => {
+        console.log("📞 Calling pending peer (from effect):", peerId);
+        callPeerInternal(peerId);
+      });
+    }
+  }, [isPeerReady]);
 
   const callPeerInternal = async (peerId: string) => {
     if (!localStream || !peerRef.current) {
@@ -286,11 +302,21 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   };
 
   const callPeer = (peerId: string) => {
-    console.log("📱 Attempting to call peer:", peerId);
+    console.log("📱 Attempting to call peer:", peerId, "isPeerReady:", isPeerReady);
     
     if (!isPeerReady) {
       console.log("⏳ Peer not ready yet, adding to pending calls:", peerId);
       pendingCallsRef.current.add(peerId);
+      
+      // Set a timeout to retry after 3 seconds if peer still not ready
+      setTimeout(() => {
+        if (pendingCallsRef.current.has(peerId) && isPeerReady) {
+          console.log("⏰ Retry timeout - calling peer from pending:", peerId);
+          pendingCallsRef.current.delete(peerId);
+          callPeerInternal(peerId);
+        }
+      }, 3000);
+      
       return;
     }
 
