@@ -297,6 +297,9 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setIsVideoEnabled(videoTrack.enabled);
+        // Create new MediaStream with same tracks to trigger re-render
+        const newStream = new MediaStream(localStream.getTracks());
+        setLocalStream(newStream);
       }
     }
   };
