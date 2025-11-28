@@ -85,6 +85,12 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
           // Answer the call with local stream
           call.answer(stream);
           
+          // Also call them back if we haven't already to ensure bidirectional connection
+          if (!connectionsRef.current.has(call.peer)) {
+            console.log("🔄 Calling back peer for bidirectional connection:", call.peer);
+            setTimeout(() => callPeerInternal(call.peer), 100);
+          }
+          
           call.on("stream", async (remoteStream) => {
             console.log("📺 Received stream from:", call.peer);
             
