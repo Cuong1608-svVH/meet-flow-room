@@ -28,6 +28,8 @@ const Room = () => {
     stopScreenShare,
     callPeer,
     myPeerId,
+    screenStream,
+    cameraStream,
   } = useWebRTC(roomId!, user?.id!, displayName);
 
   useEffect(() => {
@@ -167,6 +169,9 @@ const Room = () => {
             isAudioEnabled={isAudioEnabled}
             isVideoEnabled={isVideoEnabled}
             displayName={displayName}
+            isScreenSharing={isScreenSharing}
+            screenStream={screenStream}
+            cameraStream={cameraStream}
           />
           <ControlBar
             isVideoEnabled={isVideoEnabled}

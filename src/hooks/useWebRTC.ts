@@ -20,6 +20,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   const peerRef = useRef<Peer | null>(null);
   const connectionsRef = useRef<Map<string, MediaConnection>>(new Map());
   const screenStreamRef = useRef<MediaStream | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
   const pendingCallsRef = useRef<Set<string>>(new Set());
   const retryTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
@@ -34,6 +35,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
           audio: true,
         });
         setLocalStream(stream);
+        cameraStreamRef.current = stream;
 
         // -------------------------------
         // 2️⃣ Tạo Peer ID theo format: roomId-userId
@@ -186,7 +188,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
 
       screenStreamRef.current = screenStream;
       
-      // Replace video track in all peer connections
+      // Replace video track in all peer connections with screen track
       const videoTrack = screenStream.getVideoTracks()[0];
       connectionsRef.current.forEach((connection) => {
         const sender = connection.peerConnection
@@ -196,13 +198,6 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
           sender.replaceTrack(videoTrack);
         }
       });
-
-      // Update local stream
-      if (localStream) {
-        const oldVideoTrack = localStream.getVideoTracks()[0];
-        localStream.removeTrack(oldVideoTrack);
-        localStream.addTrack(videoTrack);
-      }
 
       setIsScreenSharing(true);
 
@@ -216,36 +211,24 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   };
 
   const stopScreenShare = async () => {
-    if (!screenStreamRef.current || !localStream) return;
+    if (!screenStreamRef.current || !cameraStreamRef.current) return;
 
     try {
       // Stop screen share tracks
       screenStreamRef.current.getTracks().forEach((track) => track.stop());
 
-      // Get camera stream again
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
-      });
+      // Get camera video track
+      const cameraVideoTrack = cameraStreamRef.current.getVideoTracks()[0];
 
-      const newVideoTrack = newStream.getVideoTracks()[0];
-
-      // Replace video track in all peer connections
+      // Replace video track in all peer connections back to camera
       connectionsRef.current.forEach((connection) => {
         const sender = connection.peerConnection
           .getSenders()
           .find((s) => s.track?.kind === "video");
         if (sender) {
-          sender.replaceTrack(newVideoTrack);
+          sender.replaceTrack(cameraVideoTrack);
         }
       });
-
-      // Update local stream
-      const oldVideoTrack = localStream.getVideoTracks()[0];
-      localStream.removeTrack(oldVideoTrack);
-      localStream.addTrack(newVideoTrack);
-      
-      newVideoTrack.enabled = isVideoEnabled;
 
       screenStreamRef.current = null;
       setIsScreenSharing(false);
@@ -267,5 +250,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     stopScreenShare,
     callPeer,
     myPeerId: peerRef.current?.id,
+    screenStream: screenStreamRef.current,
+    cameraStream: cameraStreamRef.current,
   };
 };
