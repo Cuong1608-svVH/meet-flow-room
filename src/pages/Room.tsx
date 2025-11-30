@@ -7,13 +7,11 @@ import { VideoGrid } from "@/components/room/VideoGrid";
 import { ChatPanel } from "@/components/room/ChatPanel";
 import { ControlBar } from "@/components/room/ControlBar";
 import { ParticipantsList } from "@/components/room/ParticipantsList";
-import { useToast } from "@/hooks/use-toast";
 
 const Room = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [showChat, setShowChat] = useState(true);
   const [displayName, setDisplayName] = useState("User");
 
@@ -107,23 +105,8 @@ const Room = () => {
           async (payload) => {
             console.log("🔔 INSERT event received:", payload);
             if (payload.new.user_id !== user.id) {
-              // Get participant name and show notification
-              const { data: participantProfile } = await supabase
-                .from("profiles")
-                .select("display_name")
-                .eq("id", payload.new.user_id)
-                .single();
-
-              const participantName = participantProfile?.display_name || "Người dùng mới";
-              
-              toast({
-                title: "Có người tham gia",
-                description: `${participantName} đã tham gia phòng`,
-              });
-
               const newPeerId = `${roomId}-${payload.new.user_id}`;
               console.log("📞 Calling new peer immediately:", newPeerId);
-              // Call immediately without delay
               callPeer(newPeerId);
             }
           }
@@ -138,24 +121,9 @@ const Room = () => {
           },
           async (payload) => {
             console.log("🔔 UPDATE event received:", payload);
-            // Show notification when someone rejoins (is_active changes to true)
             if (payload.new.user_id !== user.id && payload.new.is_active && !payload.old.is_active) {
-              const { data: participantProfile } = await supabase
-                .from("profiles")
-                .select("display_name")
-                .eq("id", payload.new.user_id)
-                .single();
-
-              const participantName = participantProfile?.display_name || "Người dùng mới";
-              
-              toast({
-                title: "Có người tham gia",
-                description: `${participantName} đã tham gia phòng`,
-              });
-
               const newPeerId = `${roomId}-${payload.new.user_id}`;
               console.log("📞 Calling rejoining peer immediately:", newPeerId);
-              // Call immediately without delay
               callPeer(newPeerId);
             }
           }
