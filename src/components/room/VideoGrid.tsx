@@ -6,6 +6,7 @@ interface VideoGridProps {
   localStream: MediaStream | null;
   participants: Participant[];
   isAudioEnabled: boolean;
+  isVideoEnabled: boolean;
   displayName: string;
 }
 
@@ -13,6 +14,7 @@ export const VideoGrid = ({
   localStream,
   participants,
   isAudioEnabled,
+  isVideoEnabled,
   displayName,
 }: VideoGridProps) => {
   const totalParticipants = participants.length + 1; // +1 for local user
@@ -37,6 +39,7 @@ export const VideoGrid = ({
         displayName={displayName}
         isLocal
         isMuted={!isAudioEnabled}
+        isVideoEnabled={isVideoEnabled}
       />
 
       {participants.map((participant) => (
