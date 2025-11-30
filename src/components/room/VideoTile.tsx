@@ -24,8 +24,10 @@ export const VideoTile = ({
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
+      // Force video to play when stream or video enabled state changes
+      videoRef.current.play().catch(err => console.log("Video play error:", err));
     }
-  }, [stream]);
+  }, [stream, isVideoEnabled]);
 
   const hasVideo = isVideoEnabled !== undefined 
     ? isVideoEnabled 
@@ -40,6 +42,7 @@ export const VideoTile = ({
     >
       {hasVideo ? (
         <video
+          key={`video-${isVideoEnabled}`}
           ref={videoRef}
           autoPlay
           playsInline
