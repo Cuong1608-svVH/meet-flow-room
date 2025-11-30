@@ -159,17 +159,98 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
 
   const toggleVideo = () => {
     if (localStream) {
-      const t = localStream.getVideoTracks()[0];
-      t.enabled = !t.enabled;
-      setIsVideoEnabled(t.enabled);
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoEnabled(videoTrack.enabled);
+      }
     }
   };
 
   const toggleAudio = () => {
     if (localStream) {
-      const t = localStream.getAudioTracks()[0];
-      t.enabled = !t.enabled;
-      setIsAudioEnabled(t.enabled);
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsAudioEnabled(audioTrack.enabled);
+      }
+    }
+  };
+
+  const startScreenShare = async () => {
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false,
+      });
+
+      screenStreamRef.current = screenStream;
+      
+      // Replace video track in all peer connections
+      const videoTrack = screenStream.getVideoTracks()[0];
+      connectionsRef.current.forEach((connection) => {
+        const sender = connection.peerConnection
+          .getSenders()
+          .find((s) => s.track?.kind === "video");
+        if (sender) {
+          sender.replaceTrack(videoTrack);
+        }
+      });
+
+      // Update local stream
+      if (localStream) {
+        const oldVideoTrack = localStream.getVideoTracks()[0];
+        localStream.removeTrack(oldVideoTrack);
+        localStream.addTrack(videoTrack);
+      }
+
+      setIsScreenSharing(true);
+
+      // Handle when user stops sharing via browser UI
+      videoTrack.onended = () => {
+        stopScreenShare();
+      };
+    } catch (error) {
+      console.error("Error starting screen share:", error);
+    }
+  };
+
+  const stopScreenShare = async () => {
+    if (!screenStreamRef.current || !localStream) return;
+
+    try {
+      // Stop screen share tracks
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
+
+      // Get camera stream again
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
+
+      const newVideoTrack = newStream.getVideoTracks()[0];
+
+      // Replace video track in all peer connections
+      connectionsRef.current.forEach((connection) => {
+        const sender = connection.peerConnection
+          .getSenders()
+          .find((s) => s.track?.kind === "video");
+        if (sender) {
+          sender.replaceTrack(newVideoTrack);
+        }
+      });
+
+      // Update local stream
+      const oldVideoTrack = localStream.getVideoTracks()[0];
+      localStream.removeTrack(oldVideoTrack);
+      localStream.addTrack(newVideoTrack);
+      
+      newVideoTrack.enabled = isVideoEnabled;
+
+      screenStreamRef.current = null;
+      setIsScreenSharing(false);
+    } catch (error) {
+      console.error("Error stopping screen share:", error);
     }
   };
 
@@ -178,9 +259,12 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     participants,
     isVideoEnabled,
     isAudioEnabled,
+    isScreenSharing,
     isPeerReady,
     toggleVideo,
     toggleAudio,
+    startScreenShare,
+    stopScreenShare,
     callPeer,
     myPeerId: peerRef.current?.id,
   };
