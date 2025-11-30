@@ -7,6 +7,7 @@ interface VideoTileProps {
   displayName: string;
   isLocal?: boolean;
   isMuted?: boolean;
+  isVideoEnabled?: boolean;
   className?: string;
 }
 
@@ -15,6 +16,7 @@ export const VideoTile = ({
   displayName,
   isLocal = false,
   isMuted = false,
+  isVideoEnabled,
   className,
 }: VideoTileProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -25,7 +27,9 @@ export const VideoTile = ({
     }
   }, [stream]);
 
-  const hasVideo = stream?.getVideoTracks().some((track) => track.enabled);
+  const hasVideo = isVideoEnabled !== undefined 
+    ? isVideoEnabled 
+    : stream?.getVideoTracks().some((track) => track.enabled);
 
   return (
     <div

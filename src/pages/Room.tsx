@@ -197,6 +197,7 @@ const Room = () => {
             localStream={localStream}
             participants={participants}
             isAudioEnabled={isAudioEnabled}
+            isVideoEnabled={isVideoEnabled}
             displayName={displayName}
           />
           <ControlBar
