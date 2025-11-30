@@ -16,6 +16,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isPeerReady, setIsPeerReady] = useState(false);
+
   const peerRef = useRef<Peer | null>(null);
   const connectionsRef = useRef<Map<string, MediaConnection>>(new Map());
   const screenStreamRef = useRef<MediaStream | null>(null);
@@ -25,375 +26,150 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   useEffect(() => {
     const initWebRTC = async () => {
       try {
-        // Get local media stream
+        // -------------------------------
+        // 1️⃣ Lấy CAM & MIC ngay khi vào phòng
+        // -------------------------------
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
         });
         setLocalStream(stream);
 
-        // Initialize PeerJS with optimized ICE configuration
+        // -------------------------------
+        // 2️⃣ Tạo Peer ID theo format: roomId-userId
+        // -------------------------------
         const peer = new Peer(`${roomId}-${userId}`, {
           config: {
             iceServers: [
               { urls: "stun:stun.l.google.com:19302" },
               { urls: "stun:stun1.l.google.com:19302" },
-              { urls: "stun:stun2.l.google.com:19302" },
               {
                 urls: "turn:openrelay.metered.ca:80",
                 username: "openrelayproject",
-                credential: "openrelayproject"
+                credential: "openrelayproject",
               },
-              {
-                urls: "turn:openrelay.metered.ca:443",
-                username: "openrelayproject",
-                credential: "openrelayproject"
-              }
             ],
-            iceTransportPolicy: "all",
-            iceCandidatePoolSize: 10,
           },
         });
 
         peerRef.current = peer;
 
-        peer.on("open", (id) => {
-          console.log("✅ Peer connected! My peer ID is:", id);
+        // ------------------------------------
+        // 3️⃣ Khi peer kết nối xong → gọi tất cả pending peers
+        // ------------------------------------
+        peer.on("open", () => {
           setIsPeerReady(true);
-          
-          // Process any pending calls immediately
-          const pending = Array.from(pendingCallsRef.current);
+
+          const pending = [...pendingCallsRef.current];
           pendingCallsRef.current.clear();
-          
-          if (pending.length > 0) {
-            console.log("📞 Processing", pending.length, "pending calls");
-            pending.forEach((peerId) => {
-              console.log("📞 Calling pending peer:", peerId);
-              callPeerInternal(peerId);
-            });
-          }
+
+          pending.forEach((id) => callPeerInternal(id));
         });
 
+        // ------------------------------------
+        // 4️⃣ Người khác gọi đến → answer NGAY
+        // ------------------------------------
         peer.on("call", (call) => {
-          console.log("📞 Incoming call from:", call.peer);
-          
-          // Clear any retry timeout for this peer
-          const existingTimeout = retryTimeoutsRef.current.get(call.peer);
-          if (existingTimeout) {
-            clearTimeout(existingTimeout);
-            retryTimeoutsRef.current.delete(call.peer);
-          }
-          
-          // Answer the call with local stream
           call.answer(stream);
-          
-          // Also call them back if we haven't already to ensure bidirectional connection
+
+          // gọi lại để đảm bảo kết nối 2 chiều
           if (!connectionsRef.current.has(call.peer)) {
-            console.log("🔄 Calling back peer for bidirectional connection:", call.peer);
-            setTimeout(() => callPeerInternal(call.peer), 100);
+            setTimeout(() => callPeerInternal(call.peer), 120);
           }
-          
+
           call.on("stream", async (remoteStream) => {
-            console.log("📺 Received stream from:", call.peer);
-            
-            // Get participant display name from database
-            // Extract userId by removing roomId prefix (format: roomId-userId)
-            const participantUserId = call.peer.substring(roomId.length + 1);
-            console.log("🔍 Extracted userId:", participantUserId);
-            
-            const { data: profile, error } = await supabase
-              .from("profiles")
-              .select("display_name")
-              .eq("id", participantUserId)
-              .maybeSingle();
-            
-            if (error) {
-              console.error("❌ Error fetching profile:", error);
-            }
-            
-            const displayName = profile?.display_name || "User";
-            
-            // Add remote participant
-            setParticipants((prev) => {
-              // Check if participant already exists
-              if (prev.some((p) => p.peerId === call.peer)) {
-                console.log("ℹ️ Participant already exists:", call.peer);
-                return prev;
-              }
-              console.log("➕ Adding new participant:", call.peer, "with name:", displayName);
-              return [
-                ...prev,
-                {
-                  peerId: call.peer,
-                  stream: remoteStream,
-                  userId: participantUserId,
-                  displayName,
-                },
-              ];
-            });
+            await addParticipant(call.peer, remoteStream);
           });
 
           call.on("close", () => {
-            console.log("❌ Call closed with:", call.peer);
-            setParticipants((prev) => prev.filter((p) => p.peerId !== call.peer));
+            setParticipants((p) => p.filter((x) => x.peerId !== call.peer));
             connectionsRef.current.delete(call.peer);
-          });
-          
-          call.on("error", (error) => {
-            console.error("❌ Call error with:", call.peer, error);
-            // Retry connection after error
-            setTimeout(() => {
-              if (!connectionsRef.current.has(call.peer)) {
-                console.log("🔄 Retrying connection to:", call.peer);
-                callPeerInternal(call.peer);
-              }
-            }, 2000);
           });
 
           connectionsRef.current.set(call.peer, call);
         });
 
-        peer.on("error", (error) => {
-          console.error("Peer error:", error);
-        });
-
-      } catch (error) {
-        console.error("Error accessing media devices:", error);
+        peer.on("error", (e) => console.error("Peer error:", e));
+      } catch (e) {
+        console.error("Camera error:", e);
       }
     };
 
     initWebRTC();
 
     return () => {
-      // Cleanup
-      localStream?.getTracks().forEach((track) => track.stop());
-      screenStreamRef.current?.getTracks().forEach((track) => track.stop());
-      connectionsRef.current.forEach((conn) => conn.close());
-      retryTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
-      retryTimeoutsRef.current.clear();
+      localStream?.getTracks().forEach((t) => t.stop());
+      connectionsRef.current.forEach((c) => c.close());
       peerRef.current?.destroy();
     };
-  }, [roomId, userId]);
+  }, []);
 
-  // Watch for isPeerReady changes and process pending calls
-  useEffect(() => {
-    if (isPeerReady && pendingCallsRef.current.size > 0) {
-      console.log("🔄 Peer is ready, processing", pendingCallsRef.current.size, "pending calls");
-      const pending = Array.from(pendingCallsRef.current);
-      pendingCallsRef.current.clear();
-      
-      pending.forEach((peerId) => {
-        console.log("📞 Calling pending peer (from effect):", peerId);
-        callPeerInternal(peerId);
-      });
-    }
-  }, [isPeerReady]);
+  // ---------------------------------------
+  // 📌 Hàm thêm participant (không trùng)
+  // ---------------------------------------
+  const addParticipant = async (peerId: string, stream: MediaStream) => {
+    const participantUserId = peerId.substring(roomId.length + 1);
 
-  const callPeerInternal = async (peerId: string) => {
-    if (!localStream || !peerRef.current) {
-      console.warn("⚠️ Cannot call peer - localStream or peerRef not ready");
-      return;
-    }
+    const { data } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", participantUserId)
+      .maybeSingle();
 
-    // Don't call if already connected
-    if (connectionsRef.current.has(peerId)) {
-      console.log("ℹ️ Already connected to:", peerId);
-      return;
-    }
+    const name = data?.display_name || "User";
 
-    console.log("📞 Calling peer:", peerId);
-    
-    try {
-      const call = peerRef.current.call(peerId, localStream);
-      
-      // Set timeout to retry if no stream received within 5 seconds
-      const timeoutId = setTimeout(() => {
-        if (!connectionsRef.current.has(peerId)) {
-          console.log("⏰ Connection timeout, retrying:", peerId);
-          connectionsRef.current.delete(peerId);
-          callPeerInternal(peerId);
-        }
-      }, 5000);
-      
-      retryTimeoutsRef.current.set(peerId, timeoutId);
-      
-      call.on("stream", async (remoteStream) => {
-        console.log("📺 Received stream from:", peerId);
-        
-        // Clear retry timeout
-        const timeout = retryTimeoutsRef.current.get(peerId);
-        if (timeout) {
-          clearTimeout(timeout);
-          retryTimeoutsRef.current.delete(peerId);
-        }
-        
-        // Get participant display name from database
-        // Extract userId by removing roomId prefix (format: roomId-userId)
-        const participantUserId = peerId.substring(roomId.length + 1);
-        console.log("🔍 Extracted userId:", participantUserId);
-        
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("display_name")
-          .eq("id", participantUserId)
-          .maybeSingle();
-        
-        if (error) {
-          console.error("❌ Error fetching profile:", error);
-        }
-        
-        const displayName = profile?.display_name || "User";
-        
-        setParticipants((prev) => {
-          if (prev.some((p) => p.peerId === peerId)) {
-            console.log("ℹ️ Participant already exists:", peerId);
-            return prev;
-          }
-          console.log("➕ Adding new participant:", peerId, "with name:", displayName);
-          return [
-            ...prev,
-            {
-              peerId,
-              stream: remoteStream,
-              userId: participantUserId,
-              displayName,
-            },
-          ];
-        });
-      });
-
-      call.on("close", () => {
-        console.log("❌ Call closed with:", peerId);
-        setParticipants((prev) => prev.filter((p) => p.peerId !== peerId));
-        connectionsRef.current.delete(peerId);
-        
-        // Clear retry timeout
-        const timeout = retryTimeoutsRef.current.get(peerId);
-        if (timeout) {
-          clearTimeout(timeout);
-          retryTimeoutsRef.current.delete(peerId);
-        }
-      });
-      
-      call.on("error", (error) => {
-        console.error("❌ Call error with:", peerId, error);
-        connectionsRef.current.delete(peerId);
-        
-        // Retry connection after error
-        setTimeout(() => {
-          if (!connectionsRef.current.has(peerId)) {
-            console.log("🔄 Retrying connection after error:", peerId);
-            callPeerInternal(peerId);
-          }
-        }, 2000);
-      });
-
-      connectionsRef.current.set(peerId, call);
-    } catch (error) {
-      console.error("❌ Error calling peer:", peerId, error);
-      // Retry after a delay
-      setTimeout(() => {
-        if (!connectionsRef.current.has(peerId)) {
-          console.log("🔄 Retrying after exception:", peerId);
-          callPeerInternal(peerId);
-        }
-      }, 2000);
-    }
+    setParticipants((prev) => {
+      if (prev.some((p) => p.peerId === peerId)) return prev;
+      return [...prev, { peerId, stream, userId: participantUserId, displayName: name }];
+    });
   };
 
+  // ---------------------------------------
+  // 📌 Hàm gọi peer nội bộ
+  // ---------------------------------------
+  const callPeerInternal = (peerId: string) => {
+    if (!peerRef.current || !localStream) return;
+
+    if (connectionsRef.current.has(peerId)) return;
+
+    const call = peerRef.current.call(peerId, localStream);
+
+    call.on("stream", async (remoteStream) => {
+      await addParticipant(peerId, remoteStream);
+    });
+
+    call.on("close", () => {
+      setParticipants((p) => p.filter((x) => x.peerId !== peerId));
+      connectionsRef.current.delete(peerId);
+    });
+
+    connectionsRef.current.set(peerId, call);
+  };
+
+  // ---------------------------------------
+  // 📌 Hàm gọi peer công khai
+  // ---------------------------------------
   const callPeer = (peerId: string) => {
-    console.log("📱 Attempting to call peer:", peerId, "isPeerReady:", isPeerReady);
-    
     if (!isPeerReady) {
-      console.log("⏳ Peer not ready yet, adding to pending calls:", peerId);
       pendingCallsRef.current.add(peerId);
-      
-      // Set a timeout to retry after 3 seconds if peer still not ready
-      setTimeout(() => {
-        if (pendingCallsRef.current.has(peerId) && isPeerReady) {
-          console.log("⏰ Retry timeout - calling peer from pending:", peerId);
-          pendingCallsRef.current.delete(peerId);
-          callPeerInternal(peerId);
-        }
-      }, 3000);
-      
       return;
     }
-
     callPeerInternal(peerId);
   };
 
   const toggleVideo = () => {
     if (localStream) {
-      const videoTrack = localStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoEnabled(videoTrack.enabled);
-        // Create new MediaStream with same tracks to trigger re-render
-        const newStream = new MediaStream(localStream.getTracks());
-        setLocalStream(newStream);
-      }
+      const t = localStream.getVideoTracks()[0];
+      t.enabled = !t.enabled;
+      setIsVideoEnabled(t.enabled);
     }
   };
 
   const toggleAudio = () => {
     if (localStream) {
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsAudioEnabled(audioTrack.enabled);
-      }
-    }
-  };
-
-  const startScreenShare = async () => {
-    try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: false,
-      });
-
-      screenStreamRef.current = screenStream;
-      setIsScreenSharing(true);
-
-      // Replace video track for all connections
-      const videoTrack = screenStream.getVideoTracks()[0];
-      connectionsRef.current.forEach((call) => {
-        const sender = call.peerConnection
-          .getSenders()
-          .find((s) => s.track?.kind === "video");
-        if (sender) {
-          sender.replaceTrack(videoTrack);
-        }
-      });
-
-      // When screen sharing stops
-      videoTrack.onended = () => {
-        stopScreenShare();
-      };
-
-    } catch (error) {
-      console.error("Error starting screen share:", error);
-    }
-  };
-
-  const stopScreenShare = () => {
-    if (screenStreamRef.current && localStream) {
-      screenStreamRef.current.getTracks().forEach((track) => track.stop());
-      
-      // Replace back to camera
-      const videoTrack = localStream.getVideoTracks()[0];
-      connectionsRef.current.forEach((call) => {
-        const sender = call.peerConnection
-          .getSenders()
-          .find((s) => s.track?.kind === "video");
-        if (sender) {
-          sender.replaceTrack(videoTrack);
-        }
-      });
-
-      screenStreamRef.current = null;
-      setIsScreenSharing(false);
+      const t = localStream.getAudioTracks()[0];
+      t.enabled = !t.enabled;
+      setIsAudioEnabled(t.enabled);
     }
   };
 
@@ -402,12 +178,9 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     participants,
     isVideoEnabled,
     isAudioEnabled,
-    isScreenSharing,
     isPeerReady,
     toggleVideo,
     toggleAudio,
-    startScreenShare,
-    stopScreenShare,
     callPeer,
     myPeerId: peerRef.current?.id,
   };
