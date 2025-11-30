@@ -8,6 +8,9 @@ interface VideoGridProps {
   isAudioEnabled: boolean;
   isVideoEnabled: boolean;
   displayName: string;
+  isScreenSharing: boolean;
+  screenStream: MediaStream | null;
+  cameraStream: MediaStream | null;
 }
 
 export const VideoGrid = ({
@@ -16,8 +19,11 @@ export const VideoGrid = ({
   isAudioEnabled,
   isVideoEnabled,
   displayName,
+  isScreenSharing,
+  screenStream,
+  cameraStream,
 }: VideoGridProps) => {
-  const totalParticipants = participants.length + 1; // +1 for local user
+  const totalParticipants = participants.length + 1;
 
   const getGridClass = () => {
     if (totalParticipants === 1) return "grid-cols-1";
@@ -27,6 +33,46 @@ export const VideoGrid = ({
     return "grid-cols-3";
   };
 
+  // Layout đặc biệt khi share màn hình (giống Google Meet)
+  if (isScreenSharing && screenStream) {
+    return (
+      <div className="flex gap-4 w-full h-full p-4">
+        {/* Màn hình share - hiển thị lớn */}
+        <div className="flex-1">
+          <VideoTile
+            stream={screenStream}
+            displayName={`${displayName} (Đang chia sẻ)`}
+            isLocal
+            isMuted={!isAudioEnabled}
+            isVideoEnabled={true}
+          />
+        </div>
+
+        {/* Sidebar với camera và participants - hiển thị nhỏ */}
+        <div className="w-64 flex flex-col gap-2 overflow-y-auto">
+          {/* Camera của người share */}
+          <VideoTile
+            stream={cameraStream}
+            displayName={displayName}
+            isLocal
+            isMuted={!isAudioEnabled}
+            isVideoEnabled={isVideoEnabled}
+          />
+
+          {/* Các participants khác */}
+          {participants.map((participant) => (
+            <VideoTile
+              key={participant.peerId}
+              stream={participant.stream}
+              displayName={participant.displayName}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Layout thông thường (grid)
   return (
     <div
       className={cn(
