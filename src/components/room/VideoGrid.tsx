@@ -73,13 +73,7 @@ export const VideoGrid = ({
   }
 
   // Layout đặc biệt khi có participant khác đang share màn hình
-  const screenSharingParticipant = participants.find(p => {
-    const videoTrack = p.stream.getVideoTracks()[0];
-    return videoTrack && (
-      videoTrack.label.toLowerCase().includes('screen') ||
-      videoTrack.label.toLowerCase().includes('display')
-    );
-  });
+  const screenSharingParticipant = participants.find(p => p.isScreenSharing);
 
   if (screenSharingParticipant) {
     return (
