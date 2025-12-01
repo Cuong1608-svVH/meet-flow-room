@@ -21,6 +21,7 @@ const Room = () => {
     isVideoEnabled,
     isAudioEnabled,
     isScreenSharing,
+    isSomeoneScreenSharing,
     isPeerReady,
     toggleVideo,
     toggleAudio,
@@ -177,6 +178,7 @@ const Room = () => {
             isVideoEnabled={isVideoEnabled}
             isAudioEnabled={isAudioEnabled}
             isScreenSharing={isScreenSharing}
+            isSomeoneScreenSharing={isSomeoneScreenSharing}
             onToggleVideo={toggleVideo}
             onToggleAudio={toggleAudio}
             onStartScreenShare={startScreenShare}

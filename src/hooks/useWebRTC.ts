@@ -16,6 +16,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isPeerReady, setIsPeerReady] = useState(false);
+  const [isSomeoneScreenSharing, setIsSomeoneScreenSharing] = useState(false);
 
   const peerRef = useRef<Peer | null>(null);
   const connectionsRef = useRef<Map<string, MediaConnection>>(new Map());
@@ -36,6 +37,38 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
         });
         setLocalStream(stream);
         cameraStreamRef.current = stream;
+
+        // Subscribe to screen sharing changes
+        const screenShareChannel = supabase
+          .channel(`screen-share:${roomId}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "room_participants",
+              filter: `room_id=eq.${roomId}`,
+            },
+            (payload: any) => {
+              // Check if anyone else is screen sharing
+              if (payload.new?.user_id !== userId && payload.new?.is_screen_sharing) {
+                setIsSomeoneScreenSharing(true);
+              } else {
+                // Check all participants
+                supabase
+                  .from("room_participants")
+                  .select("is_screen_sharing")
+                  .eq("room_id", roomId)
+                  .neq("user_id", userId)
+                  .eq("is_active", true)
+                  .eq("is_screen_sharing", true)
+                  .then(({ data }) => {
+                    setIsSomeoneScreenSharing(data && data.length > 0);
+                  });
+              }
+            }
+          )
+          .subscribe();
 
         // -------------------------------
         // 2️⃣ Tạo Peer ID theo format: roomId-userId
@@ -103,6 +136,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
       localStream?.getTracks().forEach((t) => t.stop());
       connectionsRef.current.forEach((c) => c.close());
       peerRef.current?.destroy();
+      supabase.removeChannel(supabase.channel(`screen-share:${roomId}`));
     };
   }, []);
 
@@ -201,6 +235,13 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
 
       setIsScreenSharing(true);
 
+      // Update database
+      await supabase
+        .from("room_participants")
+        .update({ is_screen_sharing: true })
+        .eq("room_id", roomId)
+        .eq("user_id", userId);
+
       // Handle when user stops sharing via browser UI
       videoTrack.onended = () => {
         stopScreenShare();
@@ -232,6 +273,13 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
 
       screenStreamRef.current = null;
       setIsScreenSharing(false);
+
+      // Update database
+      await supabase
+        .from("room_participants")
+        .update({ is_screen_sharing: false })
+        .eq("room_id", roomId)
+        .eq("user_id", userId);
     } catch (error) {
       console.error("Error stopping screen share:", error);
     }
@@ -243,6 +291,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     isVideoEnabled,
     isAudioEnabled,
     isScreenSharing,
+    isSomeoneScreenSharing,
     isPeerReady,
     toggleVideo,
     toggleAudio,
