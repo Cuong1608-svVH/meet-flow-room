@@ -7,6 +7,7 @@ export interface Participant {
   stream: MediaStream;
   userId: string;
   displayName: string;
+  isScreenSharing: boolean;
 }
 
 export const useWebRTC = (roomId: string, userId: string, displayName: string) => {
@@ -50,6 +51,18 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
               filter: `room_id=eq.${roomId}`,
             },
             (payload: any) => {
+              // Update participant's screen sharing status
+              if (payload.new?.user_id) {
+                const peerId = `${roomId}-${payload.new.user_id}`;
+                setParticipants((prev) =>
+                  prev.map((p) =>
+                    p.peerId === peerId
+                      ? { ...p, isScreenSharing: payload.new.is_screen_sharing || false }
+                      : p
+                  )
+                );
+              }
+
               // Check if anyone else is screen sharing
               if (payload.new?.user_id !== userId && payload.new?.is_screen_sharing) {
                 setIsSomeoneScreenSharing(true);
@@ -146,17 +159,25 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   const addParticipant = async (peerId: string, stream: MediaStream) => {
     const participantUserId = peerId.substring(roomId.length + 1);
 
-    const { data } = await supabase
+    const { data: profile } = await supabase
       .from("profiles")
       .select("display_name")
       .eq("id", participantUserId)
       .maybeSingle();
 
-    const name = data?.display_name || "User";
+    const { data: roomParticipant } = await supabase
+      .from("room_participants")
+      .select("is_screen_sharing")
+      .eq("room_id", roomId)
+      .eq("user_id", participantUserId)
+      .maybeSingle();
+
+    const name = profile?.display_name || "User";
+    const isScreenSharing = roomParticipant?.is_screen_sharing || false;
 
     setParticipants((prev) => {
       if (prev.some((p) => p.peerId === peerId)) return prev;
-      return [...prev, { peerId, stream, userId: participantUserId, displayName: name }];
+      return [...prev, { peerId, stream, userId: participantUserId, displayName: name, isScreenSharing }];
     });
   };
 
