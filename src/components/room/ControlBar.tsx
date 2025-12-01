@@ -7,6 +7,7 @@ interface ControlBarProps {
   isVideoEnabled: boolean;
   isAudioEnabled: boolean;
   isScreenSharing: boolean;
+  isSomeoneScreenSharing: boolean;
   onToggleVideo: () => void;
   onToggleAudio: () => void;
   onStartScreenShare: () => void;
@@ -19,6 +20,7 @@ export const ControlBar = ({
   isVideoEnabled,
   isAudioEnabled,
   isScreenSharing,
+  isSomeoneScreenSharing,
   onToggleVideo,
   onToggleAudio,
   onStartScreenShare,
@@ -64,7 +66,15 @@ export const ControlBar = ({
         variant="ghost"
         size="icon"
         onClick={isScreenSharing ? onStopScreenShare : onStartScreenShare}
-        className={`h-12 w-12 rounded-full ${isScreenSharing ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-muted hover:bg-muted/80 text-foreground"}`}
+        disabled={!isScreenSharing && isSomeoneScreenSharing}
+        className={`h-12 w-12 rounded-full ${
+          isScreenSharing 
+            ? "bg-primary hover:bg-primary/90 text-primary-foreground" 
+            : isSomeoneScreenSharing
+            ? "bg-muted/50 text-muted-foreground cursor-not-allowed opacity-50"
+            : "bg-muted hover:bg-muted/80 text-foreground"
+        }`}
+        title={isSomeoneScreenSharing && !isScreenSharing ? "Có người khác đang chia sẻ màn hình" : ""}
       >
         <Monitor className="h-6 w-6" />
       </Button>
