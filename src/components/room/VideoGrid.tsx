@@ -33,7 +33,7 @@ export const VideoGrid = ({
     return "grid-cols-3";
   };
 
-  // Layout đặc biệt khi share màn hình (giống Google Meet)
+  // Layout đặc biệt khi local user share màn hình
   if (isScreenSharing && screenStream) {
     return (
       <div className="flex gap-4 w-full h-full p-4">
@@ -67,6 +67,55 @@ export const VideoGrid = ({
               displayName={participant.displayName}
             />
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Layout đặc biệt khi có participant khác đang share màn hình
+  const screenSharingParticipant = participants.find(p => {
+    const videoTrack = p.stream.getVideoTracks()[0];
+    return videoTrack && (
+      videoTrack.label.toLowerCase().includes('screen') ||
+      videoTrack.label.toLowerCase().includes('display')
+    );
+  });
+
+  if (screenSharingParticipant) {
+    return (
+      <div className="flex gap-4 w-full h-full p-4">
+        {/* Màn hình share của participant - hiển thị lớn */}
+        <div className="flex-1">
+          <VideoTile
+            stream={screenSharingParticipant.stream}
+            displayName={`${screenSharingParticipant.displayName} (Đang chia sẻ)`}
+            isMuted={false}
+            isVideoEnabled={true}
+          />
+        </div>
+
+        {/* Sidebar với camera local và participants khác */}
+        <div className="w-64 flex flex-col gap-2 overflow-y-auto">
+          {/* Camera của local user */}
+          <VideoTile
+            stream={localStream}
+            displayName={displayName}
+            isLocal
+            isMuted={!isAudioEnabled}
+            isVideoEnabled={isVideoEnabled}
+          />
+
+          {/* Các participants khác (trừ người đang share) */}
+          {participants
+            .filter(p => p.peerId !== screenSharingParticipant.peerId)
+            .map((participant) => (
+              <VideoTile
+                key={participant.peerId}
+                stream={participant.stream}
+                displayName={participant.displayName}
+              />
+            ))
+          }
         </div>
       </div>
     );
