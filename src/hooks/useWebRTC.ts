@@ -119,39 +119,58 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
         // 4️⃣ Người khác gọi đến → answer NGAY
         // ------------------------------------
         peer.on("call", (call) => {
-          // Check if this is a screen share call
-          const isScreenCall = call.peer.endsWith("-screen");
+          call.answer(stream);
           
-          if (isScreenCall) {
-            // Answer with null for screen share calls (we only receive, not send)
-            call.answer(stream);
-          } else {
-            call.answer(stream);
-            
-            // gọi lại để đảm bảo kết nối 2 chiều
-            if (!connectionsRef.current.has(call.peer)) {
-              setTimeout(() => callPeerInternal(call.peer), 120);
-            }
+          // gọi lại để đảm bảo kết nối 2 chiều
+          if (!connectionsRef.current.has(call.peer)) {
+            setTimeout(() => callPeerInternal(call.peer), 120);
           }
 
           call.on("stream", async (remoteStream) => {
-            await addParticipant(call.peer, remoteStream);
+            // Check if this is a screen share stream by examining video track
+            const videoTrack = remoteStream.getVideoTracks()[0];
+            const isScreenShare = videoTrack && (
+              videoTrack.label.includes("screen") || 
+              videoTrack.label.includes("Screen") ||
+              videoTrack.label.toLowerCase().includes("display")
+            );
+
+            if (isScreenShare) {
+              // This is a screen share stream - add it as screenStream
+              const basePeerId = call.peer;
+              const participantUserId = basePeerId.substring(roomId.length + 1);
+              
+              setParticipants((prev) =>
+                prev.map((p) =>
+                  p.peerId === basePeerId
+                    ? { ...p, screenStream: remoteStream }
+                    : p
+                )
+              );
+              
+              // Store connection with screen identifier
+              connectionsRef.current.set(`${call.peer}-screen`, call);
+            } else {
+              // This is a regular camera stream
+              await addParticipant(call.peer, remoteStream);
+              connectionsRef.current.set(call.peer, call);
+            }
           });
 
           call.on("close", () => {
-            const basePeerId = call.peer.replace("-screen", "");
-            if (call.peer.endsWith("-screen")) {
-              // Remove screen stream from participant
+            const connectionKey = `${call.peer}-screen`;
+            if (connectionsRef.current.has(connectionKey)) {
+              // This was a screen share connection
               setParticipants((p) => 
-                p.map((x) => x.peerId === basePeerId ? { ...x, screenStream: undefined } : x)
+                p.map((x) => x.peerId === call.peer ? { ...x, screenStream: undefined } : x)
               );
+              connectionsRef.current.delete(connectionKey);
             } else {
+              // This was a regular camera connection
               setParticipants((p) => p.filter((x) => x.peerId !== call.peer));
+              connectionsRef.current.delete(call.peer);
             }
-            connectionsRef.current.delete(call.peer);
           });
-
-          connectionsRef.current.set(call.peer, call);
         });
 
         peer.on("error", (e) => console.error("Peer error:", e));
