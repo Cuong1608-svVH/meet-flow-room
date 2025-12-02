@@ -8,6 +8,7 @@ export interface Participant {
   userId: string;
   displayName: string;
   isScreenSharing: boolean;
+  screenStream?: MediaStream;
 }
 
 export const useWebRTC = (roomId: string, userId: string, displayName: string) => {
@@ -118,11 +119,19 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
         // 4️⃣ Người khác gọi đến → answer NGAY
         // ------------------------------------
         peer.on("call", (call) => {
-          call.answer(stream);
-
-          // gọi lại để đảm bảo kết nối 2 chiều
-          if (!connectionsRef.current.has(call.peer)) {
-            setTimeout(() => callPeerInternal(call.peer), 120);
+          // Check if this is a screen share call
+          const isScreenCall = call.peer.endsWith("-screen");
+          
+          if (isScreenCall) {
+            // Answer with null for screen share calls (we only receive, not send)
+            call.answer(stream);
+          } else {
+            call.answer(stream);
+            
+            // gọi lại để đảm bảo kết nối 2 chiều
+            if (!connectionsRef.current.has(call.peer)) {
+              setTimeout(() => callPeerInternal(call.peer), 120);
+            }
           }
 
           call.on("stream", async (remoteStream) => {
@@ -130,7 +139,15 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
           });
 
           call.on("close", () => {
-            setParticipants((p) => p.filter((x) => x.peerId !== call.peer));
+            const basePeerId = call.peer.replace("-screen", "");
+            if (call.peer.endsWith("-screen")) {
+              // Remove screen stream from participant
+              setParticipants((p) => 
+                p.map((x) => x.peerId === basePeerId ? { ...x, screenStream: undefined } : x)
+              );
+            } else {
+              setParticipants((p) => p.filter((x) => x.peerId !== call.peer));
+            }
             connectionsRef.current.delete(call.peer);
           });
 
@@ -157,7 +174,22 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   // 📌 Hàm thêm participant (không trùng)
   // ---------------------------------------
   const addParticipant = async (peerId: string, stream: MediaStream) => {
-    const participantUserId = peerId.substring(roomId.length + 1);
+    // Check if this is a screen share stream
+    const isScreenStream = peerId.endsWith("-screen");
+    const basePeerId = isScreenStream ? peerId.replace("-screen", "") : peerId;
+    const participantUserId = basePeerId.substring(roomId.length + 1);
+
+    if (isScreenStream) {
+      // Add screen stream to existing participant
+      setParticipants((prev) =>
+        prev.map((p) =>
+          p.peerId === basePeerId
+            ? { ...p, screenStream: stream }
+            : p
+        )
+      );
+      return;
+    }
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -243,14 +275,21 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
 
       screenStreamRef.current = screenStream;
       
-      // Replace video track in all peer connections with screen track
-      const videoTrack = screenStream.getVideoTracks()[0];
-      connectionsRef.current.forEach((connection) => {
-        const sender = connection.peerConnection
-          .getSenders()
-          .find((s) => s.track?.kind === "video");
-        if (sender) {
-          sender.replaceTrack(videoTrack);
+      // Create new peer connections for screen sharing with "-screen" suffix
+      if (!peerRef.current) return;
+      
+      const screenPeerId = `${roomId}-${userId}-screen`;
+      
+      // Call all existing participants with screen stream
+      connectionsRef.current.forEach((_, peerId) => {
+        if (!peerId.endsWith("-screen")) {
+          const screenCall = peerRef.current!.call(peerId, screenStream);
+          
+          screenCall.on("close", () => {
+            connectionsRef.current.delete(`${peerId}-screen-out`);
+          });
+          
+          connectionsRef.current.set(`${peerId}-screen-out`, screenCall);
         }
       });
 
@@ -264,6 +303,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
         .eq("user_id", userId);
 
       // Handle when user stops sharing via browser UI
+      const videoTrack = screenStream.getVideoTracks()[0];
       videoTrack.onended = () => {
         stopScreenShare();
       };
@@ -273,22 +313,17 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   };
 
   const stopScreenShare = async () => {
-    if (!screenStreamRef.current || !cameraStreamRef.current) return;
+    if (!screenStreamRef.current) return;
 
     try {
       // Stop screen share tracks
       screenStreamRef.current.getTracks().forEach((track) => track.stop());
 
-      // Get camera video track
-      const cameraVideoTrack = cameraStreamRef.current.getVideoTracks()[0];
-
-      // Replace video track in all peer connections back to camera
-      connectionsRef.current.forEach((connection) => {
-        const sender = connection.peerConnection
-          .getSenders()
-          .find((s) => s.track?.kind === "video");
-        if (sender) {
-          sender.replaceTrack(cameraVideoTrack);
+      // Close all screen share peer connections
+      connectionsRef.current.forEach((connection, key) => {
+        if (key.includes("-screen")) {
+          connection.close();
+          connectionsRef.current.delete(key);
         }
       });
 
