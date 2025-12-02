@@ -275,22 +275,22 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
 
       screenStreamRef.current = screenStream;
       
-      // Create new peer connections for screen sharing with "-screen" suffix
+      // Create new peer connections for screen sharing
       if (!peerRef.current) return;
       
-      const screenPeerId = `${roomId}-${userId}-screen`;
+      // Only send screen to actual participants (base peer IDs without any suffixes)
+      const baseParticipantIds = Array.from(connectionsRef.current.keys()).filter(
+        peerId => !peerId.includes("-screen")
+      );
       
-      // Call all existing participants with screen stream
-      connectionsRef.current.forEach((_, peerId) => {
-        if (!peerId.endsWith("-screen")) {
-          const screenCall = peerRef.current!.call(peerId, screenStream);
-          
-          screenCall.on("close", () => {
-            connectionsRef.current.delete(`${peerId}-screen-out`);
-          });
-          
-          connectionsRef.current.set(`${peerId}-screen-out`, screenCall);
-        }
+      baseParticipantIds.forEach((peerId) => {
+        const screenCall = peerRef.current!.call(peerId, screenStream);
+        
+        screenCall.on("close", () => {
+          connectionsRef.current.delete(`${peerId}-screen-out`);
+        });
+        
+        connectionsRef.current.set(`${peerId}-screen-out`, screenCall);
       });
 
       setIsScreenSharing(true);
