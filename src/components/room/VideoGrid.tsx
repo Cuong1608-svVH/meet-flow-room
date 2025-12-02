@@ -81,7 +81,7 @@ export const VideoGrid = ({
         {/* Màn hình share của participant - hiển thị lớn */}
         <div className="flex-1">
           <VideoTile
-            stream={screenSharingParticipant.stream}
+            stream={screenSharingParticipant.screenStream || screenSharingParticipant.stream}
             displayName={`${screenSharingParticipant.displayName} (Đang chia sẻ)`}
             isMuted={false}
             isVideoEnabled={true}
@@ -99,17 +99,14 @@ export const VideoGrid = ({
             isVideoEnabled={isVideoEnabled}
           />
 
-          {/* Các participants khác (trừ người đang share) */}
-          {participants
-            .filter(p => p.peerId !== screenSharingParticipant.peerId)
-            .map((participant) => (
-              <VideoTile
-                key={participant.peerId}
-                stream={participant.stream}
-                displayName={participant.displayName}
-              />
-            ))
-          }
+          {/* Các participants khác (bao gồm cả camera của người đang share) */}
+          {participants.map((participant) => (
+            <VideoTile
+              key={participant.peerId}
+              stream={participant.stream}
+              displayName={participant.displayName}
+            />
+          ))}
         </div>
       </div>
     );
