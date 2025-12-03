@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Video, Plus, LogOut, User } from "lucide-react";
+import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
 
 const Home = () => {
   const { user, signOut } = useAuth();
@@ -72,6 +73,7 @@ const Home = () => {
               <User className="h-4 w-4" />
               <span>{user?.email}</span>
             </div>
+            <ChangePasswordDialog />
             <Button variant="outline" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4 mr-2" />
               Đăng xuất
