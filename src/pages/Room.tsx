@@ -10,10 +10,11 @@ import { ParticipantsList } from "@/components/room/ParticipantsList";
 
 const Room = () => {
   const { roomId } = useParams<{ roomId: string }>();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [showChat, setShowChat] = useState(true);
   const [displayName, setDisplayName] = useState("User");
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
 
   const {
     localStream,
@@ -40,14 +41,15 @@ const Room = () => {
       console.log("🔵 Initializing room:", roomId, "User:", user.id);
       
       // Get user profile
-      const { data: profile } = await supabase
+      const { data: profileData } = await supabase
         .from("profiles")
-        .select("display_name")
+        .select("display_name, avatar_url")
         .eq("id", user.id)
         .single();
 
-      if (profile) {
-        setDisplayName(profile.display_name || "User");
+      if (profileData) {
+        setDisplayName(profileData.display_name || "User");
+        setAvatarUrl(profileData.avatar_url || undefined);
       }
 
       // Use upsert to handle both new join and rejoin cases
@@ -193,6 +195,7 @@ const Room = () => {
               roomId={roomId!}
               participants={participants}
               localDisplayName={displayName}
+              localAvatarUrl={avatarUrl}
             />
           </div>
           {showChat && (

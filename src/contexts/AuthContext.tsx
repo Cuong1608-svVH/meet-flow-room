@@ -3,14 +3,23 @@ import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
+interface Profile {
+  id: string;
+  email: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  profile: Profile | null;
   signUp: (email: string, password: string, displayName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   changePassword: (newPassword: string) => Promise<{ error: any }>;
+  fetchProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,7 +28,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const navigate = useNavigate();
+
+  const fetchProfile = async () => {
+    if (!user) {
+      setProfile(null);
+      return;
+    }
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, email, display_name, avatar_url")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    setProfile(data);
+  };
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -40,6 +65,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Fetch profile when user changes
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    } else {
+      setProfile(null);
+    }
+  }, [user]);
 
   const signUp = async (email: string, password: string, displayName: string) => {
     const redirectUrl = `${window.location.origin}/`;
@@ -88,7 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, changePassword }}>
+    <AuthContext.Provider value={{ user, session, loading, profile, signUp, signIn, signOut, changePassword, fetchProfile }}>
       {children}
     </AuthContext.Provider>
   );
