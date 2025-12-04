@@ -7,6 +7,7 @@ export interface Participant {
   stream: MediaStream;
   userId: string;
   displayName: string;
+  avatarUrl?: string;
   isScreenSharing: boolean;
   screenStream?: MediaStream;
 }
@@ -203,7 +204,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("display_name")
+      .select("display_name, avatar_url")
       .eq("id", participantUserId)
       .maybeSingle();
 
@@ -215,11 +216,12 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
       .maybeSingle();
 
     const name = profile?.display_name || "User";
+    const avatarUrl = profile?.avatar_url || undefined;
     const isScreenSharing = roomParticipant?.is_screen_sharing || false;
 
     setParticipants((prev) => {
       if (prev.some((p) => p.peerId === peerId)) return prev;
-      return [...prev, { peerId, stream, userId: participantUserId, displayName: name, isScreenSharing }];
+      return [...prev, { peerId, stream, userId: participantUserId, displayName: name, avatarUrl, isScreenSharing }];
     });
   };
 

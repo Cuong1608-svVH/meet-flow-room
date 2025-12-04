@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Video, Plus, LogOut, User } from "lucide-react";
+import { Video, Plus, LogOut } from "lucide-react";
 import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
+import { AvatarUploadDialog } from "@/components/auth/AvatarUploadDialog";
 
 const Home = () => {
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [roomId, setRoomId] = useState("");
@@ -69,9 +70,11 @@ const Home = () => {
           </div>
           
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <User className="h-4 w-4" />
-              <span>{user?.email}</span>
+            <div className="flex items-center gap-2">
+              <AvatarUploadDialog />
+              <span className="text-sm text-muted-foreground">
+                {profile?.display_name || user?.email}
+              </span>
             </div>
             <ChangePasswordDialog />
             <Button variant="outline" size="sm" onClick={signOut}>
