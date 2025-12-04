@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Video, Plus, LogOut } from "lucide-react";
 import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
 import { AvatarUploadDialog } from "@/components/auth/AvatarUploadDialog";
+import { DisplayNameDialog } from "@/components/auth/DisplayNameDialog";
 
 const Home = () => {
   const { user, profile, signOut } = useAuth();
@@ -72,9 +73,7 @@ const Home = () => {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <AvatarUploadDialog />
-              <span className="text-sm text-muted-foreground">
-                {profile?.display_name || user?.email}
-              </span>
+              <DisplayNameDialog />
             </div>
             <ChangePasswordDialog />
             <Button variant="outline" size="sm" onClick={signOut}>
