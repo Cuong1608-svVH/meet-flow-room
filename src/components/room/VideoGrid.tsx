@@ -11,6 +11,7 @@ interface VideoGridProps {
   isScreenSharing: boolean;
   screenStream: MediaStream | null;
   cameraStream: MediaStream | null;
+  isHandRaised: boolean;
 }
 
 export const VideoGrid = ({
@@ -22,6 +23,7 @@ export const VideoGrid = ({
   isScreenSharing,
   screenStream,
   cameraStream,
+  isHandRaised,
 }: VideoGridProps) => {
   const totalParticipants = participants.length + 1;
 
@@ -57,6 +59,7 @@ export const VideoGrid = ({
             isLocal
             isMuted={!isAudioEnabled}
             isVideoEnabled={isVideoEnabled}
+            isHandRaised={isHandRaised}
           />
 
           {/* Các participants khác */}
@@ -65,6 +68,7 @@ export const VideoGrid = ({
               key={participant.peerId}
               stream={participant.stream}
               displayName={participant.displayName}
+              isHandRaised={participant.isHandRaised}
             />
           ))}
         </div>
@@ -97,6 +101,7 @@ export const VideoGrid = ({
             isLocal
             isMuted={!isAudioEnabled}
             isVideoEnabled={isVideoEnabled}
+            isHandRaised={isHandRaised}
           />
 
           {/* Các participants khác (bao gồm cả camera của người đang share) */}
@@ -105,6 +110,7 @@ export const VideoGrid = ({
               key={participant.peerId}
               stream={participant.stream}
               displayName={participant.displayName}
+              isHandRaised={participant.isHandRaised}
             />
           ))}
         </div>
@@ -126,6 +132,7 @@ export const VideoGrid = ({
         isLocal
         isMuted={!isAudioEnabled}
         isVideoEnabled={isVideoEnabled}
+        isHandRaised={isHandRaised}
       />
 
       {participants.map((participant) => (
@@ -133,6 +140,7 @@ export const VideoGrid = ({
           key={participant.peerId}
           stream={participant.stream}
           displayName={participant.displayName}
+          isHandRaised={participant.isHandRaised}
         />
       ))}
     </div>

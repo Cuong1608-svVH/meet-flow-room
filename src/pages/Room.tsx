@@ -23,11 +23,13 @@ const Room = () => {
     isAudioEnabled,
     isScreenSharing,
     isSomeoneScreenSharing,
+    isHandRaised,
     isPeerReady,
     toggleVideo,
     toggleAudio,
     startScreenShare,
     stopScreenShare,
+    toggleHandRaise,
     callPeer,
     myPeerId,
     screenStream,
@@ -175,16 +177,19 @@ const Room = () => {
             isScreenSharing={isScreenSharing}
             screenStream={screenStream}
             cameraStream={cameraStream}
+            isHandRaised={isHandRaised}
           />
           <ControlBar
             isVideoEnabled={isVideoEnabled}
             isAudioEnabled={isAudioEnabled}
             isScreenSharing={isScreenSharing}
             isSomeoneScreenSharing={isSomeoneScreenSharing}
+            isHandRaised={isHandRaised}
             onToggleVideo={toggleVideo}
             onToggleAudio={toggleAudio}
             onStartScreenShare={startScreenShare}
             onStopScreenShare={stopScreenShare}
+            onToggleHandRaise={toggleHandRaise}
             onLeave={handleLeave}
             roomId={roomId!}
           />
@@ -196,6 +201,7 @@ const Room = () => {
               participants={participants}
               localDisplayName={displayName}
               localAvatarUrl={avatarUrl}
+              localIsHandRaised={isHandRaised}
             />
           </div>
           {showChat && (

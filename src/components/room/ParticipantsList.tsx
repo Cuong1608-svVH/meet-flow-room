@@ -1,4 +1,4 @@
-import { Users, Copy, Check } from "lucide-react";
+import { Users, Copy, Check, Hand } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ interface Participant {
   userId: string;
   displayName: string;
   avatarUrl?: string;
+  isHandRaised?: boolean;
 }
 
 interface ParticipantsListProps {
@@ -19,9 +20,10 @@ interface ParticipantsListProps {
   participants: Participant[];
   localDisplayName: string;
   localAvatarUrl?: string;
+  localIsHandRaised?: boolean;
 }
 
-export const ParticipantsList = ({ roomId, participants, localDisplayName, localAvatarUrl }: ParticipantsListProps) => {
+export const ParticipantsList = ({ roomId, participants, localDisplayName, localAvatarUrl, localIsHandRaised }: ParticipantsListProps) => {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
@@ -93,6 +95,9 @@ export const ParticipantsList = ({ roomId, participants, localDisplayName, local
                 Bạn
               </Badge>
             </div>
+            {localIsHandRaised && (
+              <Hand className="h-5 w-5 text-amber-500 animate-pulse" />
+            )}
           </div>
 
           {/* Other Participants */}
@@ -112,6 +117,9 @@ export const ParticipantsList = ({ roomId, participants, localDisplayName, local
                   {participant.displayName}
                 </p>
               </div>
+              {participant.isHandRaised && (
+                <Hand className="h-5 w-5 text-amber-500 animate-pulse" />
+              )}
             </div>
           ))}
         </div>

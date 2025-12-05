@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { Mic, MicOff, User } from "lucide-react";
+import { Mic, MicOff, User, Hand } from "lucide-react";
 
 interface VideoTileProps {
   stream: MediaStream | null;
@@ -8,6 +8,7 @@ interface VideoTileProps {
   isLocal?: boolean;
   isMuted?: boolean;
   isVideoEnabled?: boolean;
+  isHandRaised?: boolean;
   className?: string;
 }
 
@@ -17,6 +18,7 @@ export const VideoTile = ({
   isLocal = false,
   isMuted = false,
   isVideoEnabled,
+  isHandRaised = false,
   className,
 }: VideoTileProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -67,6 +69,12 @@ export const VideoTile = ({
           <span>{displayName}</span>
         </div>
       </div>
+
+      {isHandRaised && (
+        <div className="absolute top-3 left-3 p-2 bg-amber-500 rounded-full animate-pulse">
+          <Hand className="h-5 w-5 text-white" />
+        </div>
+      )}
 
       {isLocal && (
         <div className="absolute top-3 right-3 px-2 py-1 bg-black/60 rounded text-xs text-white">
