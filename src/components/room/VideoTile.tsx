@@ -1,6 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Mic, MicOff, User, Hand } from "lucide-react";
+import { FloatingReaction } from "./FloatingReaction";
+import type { Reaction } from "@/hooks/useWebRTC";
 
 interface VideoTileProps {
   stream: MediaStream | null;
@@ -9,6 +11,8 @@ interface VideoTileProps {
   isMuted?: boolean;
   isVideoEnabled?: boolean;
   isHandRaised?: boolean;
+  reactions?: Reaction[];
+  onReactionComplete?: (id: string) => void;
   className?: string;
 }
 
@@ -19,9 +23,15 @@ export const VideoTile = ({
   isMuted = false,
   isVideoEnabled,
   isHandRaised = false,
+  reactions = [],
+  onReactionComplete,
   className,
 }: VideoTileProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleReactionComplete = useCallback((id: string) => {
+    onReactionComplete?.(id);
+  }, [onReactionComplete]);
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -81,6 +91,15 @@ export const VideoTile = ({
           Bạn
         </div>
       )}
+
+      {reactions.map((reaction) => (
+        <FloatingReaction
+          key={reaction.id}
+          id={reaction.id}
+          emoji={reaction.emoji}
+          onComplete={handleReactionComplete}
+        />
+      ))}
     </div>
   );
 };

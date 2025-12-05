@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Copy, Check, Hand } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { EmojiReactionPicker } from "./EmojiReactionPicker";
 
 interface ControlBarProps {
   isVideoEnabled: boolean;
@@ -14,6 +15,7 @@ interface ControlBarProps {
   onStartScreenShare: () => void;
   onStopScreenShare: () => void;
   onToggleHandRaise: () => void;
+  onSendReaction: (emoji: string) => void;
   onLeave: () => void;
   roomId: string;
 }
@@ -29,6 +31,7 @@ export const ControlBar = ({
   onStartScreenShare,
   onStopScreenShare,
   onToggleHandRaise,
+  onSendReaction,
   onLeave,
   roomId,
 }: ControlBarProps) => {
@@ -96,6 +99,8 @@ export const ControlBar = ({
       >
         <Hand className="h-6 w-6" />
       </Button>
+
+      <EmojiReactionPicker onSelectEmoji={onSendReaction} />
 
       <div className="w-px h-8 bg-border" />
 
