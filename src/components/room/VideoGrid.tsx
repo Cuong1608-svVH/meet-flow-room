@@ -1,5 +1,5 @@
 import { VideoTile } from "./VideoTile";
-import { Participant } from "@/hooks/useWebRTC";
+import { Participant, Reaction } from "@/hooks/useWebRTC";
 import { cn } from "@/lib/utils";
 
 interface VideoGridProps {
@@ -12,6 +12,9 @@ interface VideoGridProps {
   screenStream: MediaStream | null;
   cameraStream: MediaStream | null;
   isHandRaised: boolean;
+  activeReactions: Reaction[];
+  myPeerId?: string;
+  onReactionComplete: (id: string) => void;
 }
 
 export const VideoGrid = ({
@@ -24,7 +27,13 @@ export const VideoGrid = ({
   screenStream,
   cameraStream,
   isHandRaised,
+  activeReactions,
+  myPeerId,
+  onReactionComplete,
 }: VideoGridProps) => {
+  const getReactionsForPeer = (peerId: string) => {
+    return activeReactions.filter((r) => r.peerId === peerId);
+  };
   const totalParticipants = participants.length + 1;
 
   const getGridClass = () => {
@@ -60,6 +69,8 @@ export const VideoGrid = ({
             isMuted={!isAudioEnabled}
             isVideoEnabled={isVideoEnabled}
             isHandRaised={isHandRaised}
+            reactions={myPeerId ? getReactionsForPeer(myPeerId) : []}
+            onReactionComplete={onReactionComplete}
           />
 
           {/* Các participants khác */}
@@ -69,6 +80,8 @@ export const VideoGrid = ({
               stream={participant.stream}
               displayName={participant.displayName}
               isHandRaised={participant.isHandRaised}
+              reactions={getReactionsForPeer(participant.peerId)}
+              onReactionComplete={onReactionComplete}
             />
           ))}
         </div>
@@ -102,6 +115,8 @@ export const VideoGrid = ({
             isMuted={!isAudioEnabled}
             isVideoEnabled={isVideoEnabled}
             isHandRaised={isHandRaised}
+            reactions={myPeerId ? getReactionsForPeer(myPeerId) : []}
+            onReactionComplete={onReactionComplete}
           />
 
           {/* Các participants khác (bao gồm cả camera của người đang share) */}
@@ -111,6 +126,8 @@ export const VideoGrid = ({
               stream={participant.stream}
               displayName={participant.displayName}
               isHandRaised={participant.isHandRaised}
+              reactions={getReactionsForPeer(participant.peerId)}
+              onReactionComplete={onReactionComplete}
             />
           ))}
         </div>
@@ -133,6 +150,8 @@ export const VideoGrid = ({
         isMuted={!isAudioEnabled}
         isVideoEnabled={isVideoEnabled}
         isHandRaised={isHandRaised}
+        reactions={myPeerId ? getReactionsForPeer(myPeerId) : []}
+        onReactionComplete={onReactionComplete}
       />
 
       {participants.map((participant) => (
@@ -141,6 +160,8 @@ export const VideoGrid = ({
           stream={participant.stream}
           displayName={participant.displayName}
           isHandRaised={participant.isHandRaised}
+          reactions={getReactionsForPeer(participant.peerId)}
+          onReactionComplete={onReactionComplete}
         />
       ))}
     </div>

@@ -13,6 +13,13 @@ export interface Participant {
   isHandRaised?: boolean;
 }
 
+export interface Reaction {
+  id: string;
+  emoji: string;
+  peerId: string;
+  timestamp: number;
+}
+
 export const useWebRTC = (roomId: string, userId: string, displayName: string) => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -22,6 +29,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   const [isPeerReady, setIsPeerReady] = useState(false);
   const [isSomeoneScreenSharing, setIsSomeoneScreenSharing] = useState(false);
   const [isHandRaised, setIsHandRaised] = useState(false);
+  const [activeReactions, setActiveReactions] = useState<Reaction[]>([]);
 
   const peerRef = useRef<Peer | null>(null);
   const connectionsRef = useRef<Map<string, MediaConnection>>(new Map());
@@ -29,6 +37,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const pendingCallsRef = useRef<Set<string>>(new Set());
   const retryTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const reactionChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
     const initWebRTC = async () => {
@@ -172,6 +181,22 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
         });
 
         peer.on("error", (e) => console.error("Peer error:", e));
+
+        // Setup reaction broadcast channel
+        const reactionChannel = supabase
+          .channel(`reactions:${roomId}`)
+          .on("broadcast", { event: "reaction" }, ({ payload }) => {
+            const reaction: Reaction = {
+              id: crypto.randomUUID(),
+              emoji: payload.emoji,
+              peerId: payload.peerId,
+              timestamp: payload.timestamp,
+            };
+            setActiveReactions((prev) => [...prev, reaction]);
+          })
+          .subscribe();
+
+        reactionChannelRef.current = reactionChannel;
       } catch (e) {
         console.error("Camera error:", e);
       }
@@ -184,6 +209,9 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
       connectionsRef.current.forEach((c) => c.close());
       peerRef.current?.destroy();
       supabase.removeChannel(supabase.channel(`screen-share:${roomId}`));
+      if (reactionChannelRef.current) {
+        supabase.removeChannel(reactionChannelRef.current);
+      }
     };
   }, []);
 
@@ -374,6 +402,24 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
       .eq("user_id", userId);
   };
 
+  const sendReaction = (emoji: string) => {
+    if (!reactionChannelRef.current || !peerRef.current) return;
+
+    reactionChannelRef.current.send({
+      type: "broadcast",
+      event: "reaction",
+      payload: {
+        peerId: peerRef.current.id,
+        emoji,
+        timestamp: Date.now(),
+      },
+    });
+  };
+
+  const removeReaction = (reactionId: string) => {
+    setActiveReactions((prev) => prev.filter((r) => r.id !== reactionId));
+  };
+
   return {
     localStream,
     participants,
@@ -382,12 +428,15 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     isScreenSharing,
     isSomeoneScreenSharing,
     isHandRaised,
+    activeReactions,
     isPeerReady,
     toggleVideo,
     toggleAudio,
     startScreenShare,
     stopScreenShare,
     toggleHandRaise,
+    sendReaction,
+    removeReaction,
     callPeer,
     myPeerId: peerRef.current?.id,
     screenStream: screenStreamRef.current,

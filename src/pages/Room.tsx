@@ -24,12 +24,15 @@ const Room = () => {
     isScreenSharing,
     isSomeoneScreenSharing,
     isHandRaised,
+    activeReactions,
     isPeerReady,
     toggleVideo,
     toggleAudio,
     startScreenShare,
     stopScreenShare,
     toggleHandRaise,
+    sendReaction,
+    removeReaction,
     callPeer,
     myPeerId,
     screenStream,
@@ -178,6 +181,9 @@ const Room = () => {
             screenStream={screenStream}
             cameraStream={cameraStream}
             isHandRaised={isHandRaised}
+            activeReactions={activeReactions}
+            myPeerId={myPeerId}
+            onReactionComplete={removeReaction}
           />
           <ControlBar
             isVideoEnabled={isVideoEnabled}
@@ -190,6 +196,7 @@ const Room = () => {
             onStartScreenShare={startScreenShare}
             onStopScreenShare={stopScreenShare}
             onToggleHandRaise={toggleHandRaise}
+            onSendReaction={sendReaction}
             onLeave={handleLeave}
             roomId={roomId!}
           />
