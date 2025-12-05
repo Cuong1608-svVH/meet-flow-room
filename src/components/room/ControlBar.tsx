@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Copy, Check } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Copy, Check, Hand } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -8,10 +8,12 @@ interface ControlBarProps {
   isAudioEnabled: boolean;
   isScreenSharing: boolean;
   isSomeoneScreenSharing: boolean;
+  isHandRaised: boolean;
   onToggleVideo: () => void;
   onToggleAudio: () => void;
   onStartScreenShare: () => void;
   onStopScreenShare: () => void;
+  onToggleHandRaise: () => void;
   onLeave: () => void;
   roomId: string;
 }
@@ -21,10 +23,12 @@ export const ControlBar = ({
   isAudioEnabled,
   isScreenSharing,
   isSomeoneScreenSharing,
+  isHandRaised,
   onToggleVideo,
   onToggleAudio,
   onStartScreenShare,
   onStopScreenShare,
+  onToggleHandRaise,
   onLeave,
   roomId,
 }: ControlBarProps) => {
@@ -77,6 +81,20 @@ export const ControlBar = ({
         title={isSomeoneScreenSharing && !isScreenSharing ? "Có người khác đang chia sẻ màn hình" : ""}
       >
         <Monitor className="h-6 w-6" />
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onToggleHandRaise}
+        className={`h-12 w-12 rounded-full ${
+          isHandRaised 
+            ? "bg-amber-500 hover:bg-amber-600 text-white" 
+            : "bg-muted hover:bg-muted/80 text-foreground"
+        }`}
+        title={isHandRaised ? "Hạ tay" : "Giơ tay"}
+      >
+        <Hand className="h-6 w-6" />
       </Button>
 
       <div className="w-px h-8 bg-border" />

@@ -10,6 +10,7 @@ export interface Participant {
   avatarUrl?: string;
   isScreenSharing: boolean;
   screenStream?: MediaStream;
+  isHandRaised?: boolean;
 }
 
 export const useWebRTC = (roomId: string, userId: string, displayName: string) => {
@@ -20,6 +21,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isPeerReady, setIsPeerReady] = useState(false);
   const [isSomeoneScreenSharing, setIsSomeoneScreenSharing] = useState(false);
+  const [isHandRaised, setIsHandRaised] = useState(false);
 
   const peerRef = useRef<Peer | null>(null);
   const connectionsRef = useRef<Map<string, MediaConnection>>(new Map());
@@ -53,13 +55,17 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
               filter: `room_id=eq.${roomId}`,
             },
             (payload: any) => {
-              // Update participant's screen sharing status
+              // Update participant's screen sharing and hand raised status
               if (payload.new?.user_id) {
                 const peerId = `${roomId}-${payload.new.user_id}`;
                 setParticipants((prev) =>
                   prev.map((p) =>
                     p.peerId === peerId
-                      ? { ...p, isScreenSharing: payload.new.is_screen_sharing || false }
+                      ? { 
+                          ...p, 
+                          isScreenSharing: payload.new.is_screen_sharing || false,
+                          isHandRaised: payload.new.is_hand_raised || false
+                        }
                       : p
                   )
                 );
@@ -210,7 +216,7 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
 
     const { data: roomParticipant } = await supabase
       .from("room_participants")
-      .select("is_screen_sharing")
+      .select("is_screen_sharing, is_hand_raised")
       .eq("room_id", roomId)
       .eq("user_id", participantUserId)
       .maybeSingle();
@@ -218,10 +224,11 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     const name = profile?.display_name || "User";
     const avatarUrl = profile?.avatar_url || undefined;
     const isScreenSharing = roomParticipant?.is_screen_sharing || false;
+    const isHandRaised = roomParticipant?.is_hand_raised || false;
 
     setParticipants((prev) => {
       if (prev.some((p) => p.peerId === peerId)) return prev;
-      return [...prev, { peerId, stream, userId: participantUserId, displayName: name, avatarUrl, isScreenSharing }];
+      return [...prev, { peerId, stream, userId: participantUserId, displayName: name, avatarUrl, isScreenSharing, isHandRaised }];
     });
   };
 
@@ -356,6 +363,17 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     }
   };
 
+  const toggleHandRaise = async () => {
+    const newValue = !isHandRaised;
+    setIsHandRaised(newValue);
+
+    await supabase
+      .from("room_participants")
+      .update({ is_hand_raised: newValue })
+      .eq("room_id", roomId)
+      .eq("user_id", userId);
+  };
+
   return {
     localStream,
     participants,
@@ -363,11 +381,13 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
     isAudioEnabled,
     isScreenSharing,
     isSomeoneScreenSharing,
+    isHandRaised,
     isPeerReady,
     toggleVideo,
     toggleAudio,
     startScreenShare,
     stopScreenShare,
+    toggleHandRaise,
     callPeer,
     myPeerId: peerRef.current?.id,
     screenStream: screenStreamRef.current,
