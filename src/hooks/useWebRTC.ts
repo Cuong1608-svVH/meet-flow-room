@@ -186,6 +186,13 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
         const reactionChannel = supabase
           .channel(`reactions:${roomId}`)
           .on("broadcast", { event: "reaction" }, ({ payload }) => {
+            // Ignore reactions from self (already added locally)
+            if (payload.peerId === `${roomId}-${userId}`) {
+              console.log("📥 Ignoring own reaction from broadcast");
+              return;
+            }
+            
+            console.log("📥 Received reaction from:", payload.peerId, payload.emoji);
             const reaction: Reaction = {
               id: crypto.randomUUID(),
               emoji: payload.emoji,
@@ -194,7 +201,9 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
             };
             setActiveReactions((prev) => [...prev, reaction]);
           })
-          .subscribe();
+          .subscribe((status) => {
+            console.log("🔌 Reaction channel status:", status);
+          });
 
         reactionChannelRef.current = reactionChannel;
       } catch (e) {
@@ -403,13 +412,29 @@ export const useWebRTC = (roomId: string, userId: string, displayName: string) =
   };
 
   const sendReaction = (emoji: string) => {
-    if (!reactionChannelRef.current || !peerRef.current) return;
+    if (!reactionChannelRef.current || !peerRef.current) {
+      console.log("❌ Cannot send reaction: channel or peer not ready");
+      return;
+    }
 
+    const myPeerId = peerRef.current.id;
+    console.log("📤 Sending reaction:", emoji, "from:", myPeerId);
+
+    // Add local reaction immediately for better UX
+    const localReaction: Reaction = {
+      id: crypto.randomUUID(),
+      emoji,
+      peerId: myPeerId,
+      timestamp: Date.now(),
+    };
+    setActiveReactions((prev) => [...prev, localReaction]);
+
+    // Broadcast to others
     reactionChannelRef.current.send({
       type: "broadcast",
       event: "reaction",
       payload: {
-        peerId: peerRef.current.id,
+        peerId: myPeerId,
         emoji,
         timestamp: Date.now(),
       },
