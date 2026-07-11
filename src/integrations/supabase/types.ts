@@ -77,6 +77,8 @@ export type Database = {
         Row: {
           id: string
           is_active: boolean | null
+          is_hand_raised: boolean | null
+          is_screen_sharing: boolean | null
           joined_at: string | null
           left_at: string | null
           room_id: string | null
@@ -85,6 +87,8 @@ export type Database = {
         Insert: {
           id?: string
           is_active?: boolean | null
+          is_hand_raised?: boolean | null
+          is_screen_sharing?: boolean | null
           joined_at?: string | null
           left_at?: string | null
           room_id?: string | null
@@ -93,6 +97,8 @@ export type Database = {
         Update: {
           id?: string
           is_active?: boolean | null
+          is_hand_raised?: boolean | null
+          is_screen_sharing?: boolean | null
           joined_at?: string | null
           left_at?: string | null
           room_id?: string | null
